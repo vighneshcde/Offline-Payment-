@@ -1,0 +1,19 @@
+services:
+  payoffline:
+    build: .
+    container_name: payoffline-app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - JWT_SECRET=payoffline-production-secret-key-change-me
+      # Real SMS Gateway (Optional)
+      - TWILIO_ACCOUNT_SID=
+      - TWILIO_AUTH_TOKEN=
+      - TWILIO_PHONE_NUMBER=
+      - FAST2SMS_API_KEY=
+    volumes:
+      # Persistent SQLite database storage
+      - ./server/data:/app/server/data
