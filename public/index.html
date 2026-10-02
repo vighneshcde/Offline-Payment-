@@ -1,55 +1,247 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>PayOffline - Offline QR Code & Digital Cash System</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>PayOffline - Apple iOS FinTech & Offline Digital Cash</title>
   
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#10b981">
+  <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
   
-  <!-- CSS Styling -->
+  <!-- Apple iOS 18 Design System & Spring Motion -->
   <link rel="stylesheet" href="/css/app.css">
   
-  <!-- Vendor Scripts (100% Offline Compatible) -->
+  <!-- Offline Vendor Libraries -->
   <script src="/js/qrcode.js"></script>
   <script src="/js/html5-qrcode.min.js"></script>
 </head>
 <body>
 
-  <!-- In-App Real Notification Alert Toast -->
-  <div id="notification-toast" class="notification-toast">
-    <div class="toast-icon">🔔</div>
-    <div class="toast-body">
-      <h4 id="toast-title">Notification</h4>
-      <p id="toast-desc">Message content</p>
-      <div id="toast-action-container"></div>
+  <!-- ================= FULLSCREEN ONBOARDING & REAL MOBILE VERIFICATION ================= -->
+  <!-- ================= FULLSCREEN LOGIN & ONBOARDING PORTAL ================= -->
+  <div id="onboarding-screen">
+    <div class="onboarding-card">
+      <div class="onboarding-logo">⚡</div>
+      
+      <!-- Step 1: Login or Setup Profile Form -->
+      <div id="onboarding-step-create">
+        
+        <!-- Segmented Tab: Login vs Create Profile -->
+        <div class="segmented-control" style="margin-bottom:14px;">
+          <button type="button" id="auth-mode-login" class="segment-btn active">📲 Quick Login</button>
+          <button type="button" id="auth-mode-signup" class="segment-btn">✨ Create Profile</button>
+        </div>
+
+        <h2 id="ob-header-title" style="font-size:1.35rem; font-weight:800; color:var(--ios-text-primary); letter-spacing:-0.5px;">Welcome Back</h2>
+        <p id="ob-header-sub" style="font-size:0.8rem; color:var(--ios-text-secondary); margin-top:4px; margin-bottom:16px;">
+          Enter your registered mobile phone number to log in.
+        </p>
+
+        <div class="input-group" id="ob-name-group" style="text-align:left; display:none;">
+          <label class="input-label">Full Name</label>
+          <input type="text" id="ob-name" class="text-input" placeholder="e.g. Alex Sharma">
+        </div>
+
+        <div class="input-group" style="text-align:left;">
+          <label class="input-label">Mobile Phone Number</label>
+          <div style="display:flex; gap:8px;">
+            <select id="ob-country-code" class="text-input" style="width:105px; padding:12px 8px; font-weight:600;">
+              <option value="+91" selected>🇮🇳 +91</option>
+              <option value="+1">🇺🇸 +1</option>
+              <option value="+44">🇬🇧 +44</option>
+              <option value="+971">🇦🇪 +971</option>
+              <option value="+65">🇸🇬 +65</option>
+            </select>
+            <input type="tel" id="ob-phone" class="text-input" placeholder="9876543210" style="flex:1;">
+          </div>
+        </div>
+
+        <!-- Bank Details Section (Shown in Create Profile mode) -->
+        <div id="ob-bank-section" style="background:var(--ios-card-secondary); border:1px solid var(--ios-border); border-radius:14px; padding:12px 14px; margin-bottom:14px; text-align:left; display:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <span style="font-size:0.8rem; font-weight:700; color:var(--ios-text-primary);">🏦 Bank Account Details</span>
+            <span style="font-size:0.68rem; color:var(--ios-green); font-weight:700;">Required for Vault</span>
+          </div>
+
+          <div class="input-group" style="margin-bottom:8px;">
+            <label class="input-label" style="font-size:0.7rem;">Bank Name</label>
+            <select id="ob-bank-name" class="text-input" style="padding:10px 12px; font-size:0.85rem;">
+              <option value="State Bank of India" selected>State Bank of India (SBI)</option>
+              <option value="HDFC Bank">HDFC Bank</option>
+              <option value="ICICI Bank">ICICI Bank</option>
+              <option value="Punjab National Bank">Punjab National Bank (PNB)</option>
+              <option value="Axis Bank">Axis Bank</option>
+              <option value="Bank of Baroda">Bank of Baroda</option>
+              <option value="Kotak Mahindra Bank">Kotak Mahindra Bank</option>
+              <option value="Other Bank">Other Bank</option>
+            </select>
+          </div>
+
+          <div class="input-group" style="margin-bottom:8px;">
+            <label class="input-label" style="font-size:0.7rem;">Bank Account Number</label>
+            <input type="text" inputmode="numeric" id="ob-bank-account" class="text-input" placeholder="e.g. 50100456789012" autocomplete="off" style="font-size:0.85rem; padding:10px 12px;">
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+            <div class="input-group" style="margin-bottom:0;">
+              <label class="input-label" style="font-size:0.7rem;">IFSC Code</label>
+              <input type="text" id="ob-bank-ifsc" class="text-input" placeholder="SBIN0001234" autocomplete="off" style="text-transform:uppercase; font-size:0.85rem; padding:10px 12px;">
+            </div>
+            <div class="input-group" style="margin-bottom:0;">
+              <label class="input-label" style="font-size:0.7rem;">UPI ID</label>
+              <input type="text" id="ob-bank-upi" class="text-input" placeholder="alex@payoffline" autocomplete="off" style="font-size:0.85rem; padding:10px 12px;">
+            </div>
+          </div>
+        </div>
+
+        <div class="input-group" id="ob-role-group" style="text-align:left; display:none;">
+          <label class="input-label">Account Role</label>
+          <div class="segmented-control" style="margin-bottom:0;">
+            <button type="button" id="ob-role-personal" class="segment-btn active">👤 Personal Wallet</button>
+            <button type="button" id="ob-role-merchant" class="segment-btn">🏪 Merchant POS</button>
+          </div>
+        </div>
+
+        <!-- Real Notification info card -->
+        <div class="notif-permission-box">
+          <div style="font-size:1.3rem;">🔔</div>
+          <span><b>Real Device Verification:</b> An instant 6-digit OTP will be dispatched to this device.</span>
+        </div>
+
+        <button id="btn-ob-send-code" class="btn-primary">
+          📲 Send Login Code
+        </button>
+
+        <div style="margin-top:14px; text-align:center;">
+          <button type="button" id="btn-toggle-pin-login" style="background:none; border:none; color:var(--ios-blue); font-size:0.8rem; font-weight:600; cursor:pointer;">
+            🔑 Or Login with 4-Digit Security PIN / Password
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: 6-Digit Device Verification Form -->
+      <div id="onboarding-step-verify" class="hidden">
+        <h2 style="font-size:1.35rem; font-weight:800; color:var(--ios-text-primary);">Verify This Device</h2>
+        <p style="font-size:0.82rem; color:var(--ios-text-secondary); margin-top:4px;">
+          Verification code dispatched to <b id="ob-display-phone" style="color:var(--ios-text-primary);"></b>.
+        </p>
+
+        <!-- Live SMS Message Preview Card -->
+        <div id="ob-sms-live-card" style="background:rgba(0,122,255,0.08); border:1px solid rgba(0,122,255,0.25); border-radius:16px; padding:12px 14px; margin:14px 0; text-align:left;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:1rem;">💬</span>
+              <span style="font-size:0.75rem; font-weight:700; color:var(--ios-blue);">SMS Notification Alert</span>
+            </div>
+            <span id="ob-sms-status-pill" style="font-size:0.65rem; background:rgba(52,199,89,0.18); color:var(--ios-green); padding:2px 8px; border-radius:10px; font-weight:700;">Delivered</span>
+          </div>
+          <div style="font-size:0.8rem; color:var(--ios-text-primary); line-height:1.4;">
+            PayOffline: Your 6-digit code is <b id="ob-code-badge" style="font-size:1.15rem; color:var(--ios-blue); font-family:monospace; letter-spacing:2px; background:rgba(0,122,255,0.12); padding:2px 8px; border-radius:8px;">------</b>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:6px; border-top:1px dashed var(--ios-border);">
+            <span style="font-size:0.7rem; color:var(--ios-text-secondary);">Tap to auto-paste code</span>
+            <button type="button" id="btn-ob-auto-paste" class="btn-secondary" style="width:auto; padding:4px 10px; font-size:0.72rem; border-radius:8px; margin:0;">⚡ Auto-Fill Code</button>
+          </div>
+        </div>
+
+        <!-- 6 Distinct Digit Input Boxes -->
+        <div class="otp-boxes-group">
+          <input type="text" inputmode="numeric" class="otp-box" maxlength="1" data-index="0" autofocus autocomplete="one-time-code">
+          <input type="text" inputmode="numeric" class="otp-box" maxlength="1" data-index="1" autocomplete="one-time-code">
+          <input type="text" inputmode="numeric" class="otp-box" maxlength="1" data-index="2" autocomplete="one-time-code">
+          <input type="text" inputmode="numeric" class="otp-box" maxlength="1" data-index="3" autocomplete="one-time-code">
+          <input type="text" inputmode="numeric" class="otp-box" maxlength="1" data-index="4" autocomplete="one-time-code">
+          <input type="text" inputmode="numeric" class="otp-box" maxlength="1" data-index="5" autocomplete="one-time-code">
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+          <span id="ob-timer" style="font-size:0.75rem; color:var(--ios-text-secondary);">Expires in 05:00</span>
+          <span id="btn-ob-quick-fill" style="font-size:0.75rem; color:var(--ios-green); font-weight:700; cursor:pointer;">⚡ Quick-Fill Code</span>
+        </div>
+
+        <button id="btn-ob-verify" class="btn-primary">
+          ✅ Verify & Unlock Wallet
+        </button>
+
+        <button type="button" id="btn-ob-whatsapp" class="btn-secondary" style="margin-top:10px; display:flex; align-items:center; justify-content:center; gap:8px; background:rgba(37,211,102,0.12); color:#22c55e; border:1px solid rgba(37,211,102,0.3); font-weight:700; font-size:0.8rem;">
+          💬 Send Code to my Mobile WhatsApp
+        </button>
+
+        <p style="margin-top:14px; font-size:0.76rem; color:var(--ios-text-secondary);">
+          Didn't receive SMS? <span id="btn-ob-resend" style="color:var(--ios-blue); font-weight:600; cursor:pointer;">Resend SMS</span>
+          • <span id="btn-verify-switch-pin" style="color:var(--ios-purple); font-weight:600; cursor:pointer;">Login with PIN</span>
+        </p>
+      </div>
+
+      <!-- Step 3: 4-Digit Security PIN / Password Direct Login Form -->
+      <div id="onboarding-step-pin" class="hidden">
+        <h2 style="font-size:1.35rem; font-weight:800; color:var(--ios-text-primary);">Security PIN Login</h2>
+        <p style="font-size:0.8rem; color:var(--ios-text-secondary); margin-top:4px; margin-bottom:16px;">
+          Enter your 4-digit security PIN to unlock your wallet directly without SMS. (Default PIN: <b>1234</b>)
+        </p>
+
+        <div class="input-group" style="text-align:left;">
+          <label class="input-label">Mobile Phone Number</label>
+          <input type="tel" id="ob-pin-phone" class="text-input" placeholder="9876543210">
+        </div>
+
+        <div class="input-group" style="text-align:left;">
+          <label class="input-label">4-Digit Security PIN / Password</label>
+          <input type="password" id="ob-security-pin" class="text-input" placeholder="••••" maxlength="6" style="letter-spacing:8px; font-size:1.25rem; text-align:center; font-weight:700;" value="1234" autocomplete="current-password">
+        </div>
+
+        <button id="btn-ob-pin-login" class="btn-primary" style="margin-top:10px;">
+          🔓 Unlock Wallet with PIN
+        </button>
+
+        <p style="margin-top:14px; font-size:0.76rem; color:var(--ios-text-secondary);">
+          Prefer SMS Verification Code? <span id="btn-switch-back-otp" style="color:var(--ios-blue); font-weight:600; cursor:pointer;">Verify with SMS OTP</span>
+        </p>
+      </div>
+
     </div>
   </div>
 
+  <!-- ================= MAIN APPLICATION VIEWPORT ================= -->
   <div id="app-container">
     
-    <!-- Top Header -->
+    <!-- Apple Dynamic Island HUD -->
+    <div class="dynamic-island-wrapper">
+      <div id="dynamic-island">
+        <div class="island-left">
+          <span id="island-icon">⚡</span>
+        </div>
+        <div class="island-center">
+          <span id="island-title" class="island-title">PayOffline</span>
+          <span id="island-sub" class="island-sub">Ready</span>
+        </div>
+        <div class="island-right">
+          <span id="island-status-pill">100%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- iOS Glass Header -->
     <header class="app-header">
       <div class="brand-wrapper">
-        <div class="brand-icon">⚡</div>
+        <div id="header-avatar" class="brand-avatar" title="Open Settings">⚡</div>
         <div class="brand-text">
-          <h1>PayOffline</h1>
+          <h1 id="header-user-name">PayOffline</h1>
           <p id="header-user-status">Offline Digital Cash</p>
         </div>
       </div>
 
       <div style="display: flex; gap: 8px; align-items: center;">
         <!-- Audio Soundbox Toggle -->
-        <button id="sound-toggle-btn" title="Toggle Soundbox Audio" style="background:#1e293b; border:1px solid #334155; color:#fff; border-radius:50%; width:32px; height:32px; cursor:pointer;">
+        <button id="sound-toggle-btn" title="Toggle Soundbox Audio" style="background:var(--ios-card-secondary); border:1px solid var(--ios-border); color:var(--ios-text-primary); border-radius:50%; width:34px; height:34px; cursor:pointer;">
           🔊
         </button>
 
         <!-- Network Online/Offline Status Indicator -->
-        <div id="network-badge" class="network-badge online" title="Click to simulate Airplane/Offline mode">
+        <div id="network-badge" class="network-badge online" title="Tap to simulate Airplane Mode">
           <span class="status-dot"></span>
           <span id="network-text">ONLINE</span>
         </div>
@@ -58,20 +250,20 @@
 
     <!-- Simulated Offline Banner -->
     <div id="offline-banner" class="offline-banner hidden">
-      <span>✈️ Offline Mode Active: Payments are cryptographically signed on-device.</span>
-      <button id="toggle-network-btn" style="background:rgba(255,255,255,0.2); border:none; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.7rem; cursor:pointer;">Re-connect</button>
+      <span>✈️ Offline Mode Active: Cryptographic transfers are signed on-device.</span>
+      <button id="toggle-network-btn" style="background:rgba(255,255,255,0.25); border:none; color:#fff; padding:3px 10px; border-radius:6px; font-size:0.72rem; cursor:pointer; font-weight:600;">Re-connect</button>
     </div>
 
-    <!-- Main Views Container -->
+    <!-- Main Content Area with Fluid Directional Transitions -->
     <main class="content-area">
 
-      <!-- ================= TAB 1: DASHBOARD ================= -->
+      <!-- ================= TAB 1: WALLET / DASHBOARD ================= -->
       <section id="tab-home" class="tab-view">
         <!-- Balance Hero Card -->
         <div class="card card-hero">
           <div class="balance-header">
             <span class="balance-title">Total Available Assets</span>
-            <span id="pending-sync-indicator" class="sync-badge hidden">0 Pending Sync</span>
+            <span id="cloud-sync-status" class="cloud-sync-pill">☁️ Cloud Synced</span>
           </div>
 
           <div class="balance-amount">
@@ -91,12 +283,62 @@
           </div>
 
           <div style="margin-top: 14px; display: flex; gap: 8px;">
-            <button id="btn-open-allocate" class="btn-secondary" style="flex:1; padding:8px 10px; font-size:0.8rem;">
+            <button id="btn-open-allocate" class="btn-secondary" style="flex:1; padding:10px 12px; font-size:0.82rem;">
               ⚡ Allocate to Offline
             </button>
-            <button id="btn-open-topup" class="btn-secondary" style="flex:1; padding:8px 10px; font-size:0.8rem;">
-              + Add Bank Money
+            <button id="btn-open-topup" class="btn-secondary" style="flex:1; padding:10px 12px; font-size:0.82rem;">
+              + Add Bank Funds
             </button>
+          </div>
+        </div>
+
+        <!-- Linked Settlement Bank Card -->
+        <div class="bank-card-hero">
+          <div class="bank-card-top">
+            <div>
+              <div style="font-size:0.65rem; color:#94a3b8; text-transform:uppercase; font-weight:700; letter-spacing:0.5px;">Linked Settlement Bank</div>
+              <div id="home-bank-name" class="bank-name-title">State Bank of India</div>
+            </div>
+            <div class="bank-badge-verified">✓ Verified Account</div>
+          </div>
+          <div id="home-bank-account-masked" class="bank-card-acc">•••• •••• 9012</div>
+          <div class="bank-card-sub">
+            <span id="home-bank-ifsc">IFSC: SBIN0001234</span>
+            <span id="home-bank-upi">UPI: alex@payoffline</span>
+          </div>
+        </div>
+
+        <!-- Phone Contacts Directory & Quick Send -->
+        <div class="card" style="margin-bottom:16px; padding:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <div>
+              <span style="font-size:0.9rem; font-weight:700; color:var(--ios-text-primary);">📱 Phone Contacts</span>
+              <p style="font-size:0.72rem; color:var(--ios-text-secondary); margin-top:1px;">Send money offline directly</p>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button id="btn-import-phone-contacts" class="btn-primary" style="width:auto; padding:5px 10px; font-size:0.72rem;">
+                📲 Device Contacts
+              </button>
+              <button id="btn-add-contact-modal" class="btn-secondary" style="width:auto; padding:5px 10px; font-size:0.72rem;">
+                + Add
+              </button>
+            </div>
+          </div>
+
+          <!-- Contacts Search -->
+          <div class="ios-search-bar" style="margin-bottom:10px;">
+            <span>🔍</span>
+            <input type="text" id="contacts-search-input" placeholder="Search phone contacts...">
+          </div>
+
+          <!-- Horizontal Fast Avatars -->
+          <div id="contacts-scroll-row" class="contacts-scroll-row" style="margin-bottom:10px;">
+            <!-- Rendered contacts pills -->
+          </div>
+
+          <!-- Vertical Phone Contacts List -->
+          <div id="phone-contacts-directory-list" style="max-height:190px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
+            <!-- Rendered phone contacts with 'Pay' button -->
           </div>
         </div>
 
@@ -114,44 +356,31 @@
             <div class="action-icon pay-qr">🎫</div>
             <span>Offline Pay</span>
           </button>
-          <button class="action-btn" id="act-history">
-            <div class="action-icon topup">📑</div>
-            <span>Ledger</span>
+          <button class="action-btn" id="act-cloud">
+            <div class="action-icon cloud">☁️</div>
+            <span>Cloud Sync</span>
           </button>
         </div>
 
-        <!-- Offline Capabilities Info Banner -->
-        <div class="card" style="background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.2); padding: 14px;">
-          <div style="display:flex; gap:10px; align-items:center;">
-            <div style="font-size:1.5rem;">🛡️</div>
-            <div>
-              <h4 style="font-size:0.85rem; color:#fff; font-weight:700;">100% Offline Cryptographic Transfers</h4>
-              <p style="font-size:0.74rem; color:#94a3b8; margin-top:2px;">
-                Scan merchant QRs or generate signed payment vouchers with zero internet. Funds reconcile automatically when reconnected.
-              </p>
-            </div>
-          </div>
-        </div>
-
         <!-- Recent Transactions -->
-        <div class="section-title-row">
-          <h3 class="section-title">Recent Transactions</h3>
-          <span class="section-link" id="link-view-all">View All</span>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <span style="font-size:0.92rem; font-weight:700; color:var(--ios-text-primary);">Recent Activity</span>
+          <span id="link-view-all" style="font-size:0.78rem; color:var(--ios-blue); font-weight:600; cursor:pointer;">See All</span>
         </div>
 
         <div id="home-txns-list" class="transaction-list">
-          <p style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:20px 0;">No transactions yet.</p>
+          <p style="color:var(--ios-text-secondary); font-size:0.85rem; text-align:center; padding:20px 0;">No transactions yet.</p>
         </div>
       </section>
 
       <!-- ================= TAB 2: SCAN & PAY ================= -->
       <section id="tab-scan" class="tab-view hidden">
         <div class="card">
-          <h3 style="font-size:1rem; font-weight:700; color:#fff; margin-bottom:12px;">
+          <h3 style="font-size:1.05rem; font-weight:700; color:var(--ios-text-primary); margin-bottom:6px;">
             📷 Offline Camera QR Scanner
           </h3>
-          <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:14px;">
-            Scan any Merchant QR or Customer Payment Voucher offline using your device camera.
+          <p style="font-size:0.78rem; color:var(--ios-text-secondary); margin-bottom:16px;">
+            Point your camera at a Merchant Terminal QR or Customer Payment Voucher. Works 100% offline.
           </p>
 
           <div class="scanner-viewport-box">
@@ -159,50 +388,66 @@
             <div class="scan-laser"></div>
           </div>
 
-          <div style="margin-top:14px; display:flex; gap:8px;">
-            <button id="btn-toggle-camera" class="btn-primary" style="flex:1;">
-              Start Camera Scanner
+          <div style="margin-top:16px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+            <button id="btn-toggle-camera" class="btn-primary" style="padding:12px 6px; font-size:0.8rem;">
+              📷 Camera Scanner
             </button>
-            <label class="btn-secondary" style="flex:1; display:flex; align-items:center; justify-content:center; cursor:pointer;">
-              📁 Upload QR
-              <input type="file" id="qr-file-input" accept="image/*" style="display:none;">
-            </label>
+            <button id="btn-trigger-gallery-pick" class="btn-secondary" style="padding:12px 6px; font-size:0.8rem; background:rgba(0,122,255,0.15); color:var(--ios-blue); border:1px solid rgba(0,122,255,0.3);">
+              🖼️ Pick From Gallery
+            </button>
+          </div>
+          <input type="file" id="qr-file-input" accept="image/*" style="display:none;">
+
+          <!-- Image Preview Area when selected from gallery -->
+          <div id="gallery-preview-box" class="hidden" style="margin-top:14px; text-align:center; padding:12px; background:var(--ios-card-secondary); border-radius:14px; border:1px dashed var(--ios-blue);">
+            <div style="font-size:0.75rem; color:var(--ios-text-secondary); margin-bottom:6px;">Uploaded Gallery Photo:</div>
+            <img id="gallery-preview-img" style="max-height:140px; border-radius:10px; margin:0 auto; display:block; box-shadow:0 4px 12px rgba(0,0,0,0.5);">
+            <div id="gallery-status-text" style="font-size:0.75rem; font-weight:600; color:var(--ios-green); margin-top:6px;">Scanning photo...</div>
           </div>
 
-          <div id="scan-feedback" style="margin-top:12px; font-size:0.8rem; text-align:center; color:var(--text-muted);">
-            Point camera at a PayOffline QR code
+          <div id="scan-feedback" style="margin-top:12px; font-size:0.8rem; text-align:center; color:var(--ios-text-secondary);">
+            Point camera or choose a photo from your gallery
           </div>
         </div>
       </section>
 
-      <!-- ================= TAB 3: RECEIVE / MERCHANT QR ================= -->
+      <!-- ================= TAB 3: RECEIVE / SEPARATE DEVICE QR ================= -->
       <section id="tab-receive" class="tab-view hidden">
         <div class="card text-center">
-          <h3 style="font-size:1.1rem; font-weight:700; color:#fff;">Receive Money Offline</h3>
-          <p style="font-size:0.78rem; color:var(--text-muted); margin-top:4px;">
-            Ask the payer to scan your QR code with their PayOffline camera.
-          </p>
+          
+          <!-- Segmented Control: Device Terminal vs Personal Account QR -->
+          <div class="segmented-control">
+            <button id="seg-device-qr" class="segment-btn active">📱 Device Terminal QR</button>
+            <button id="seg-user-qr" class="segment-btn">👤 Personal Account QR</button>
+          </div>
 
-          <!-- QR Container -->
+          <!-- Active Device Identity Badge -->
+          <div id="device-identity-badge" class="device-badge-box">
+            <span class="beacon-dot"></span>
+            <span id="badge-device-name">Active Terminal: Apple iPhone (DEV-IPHONE)</span>
+          </div>
+
+          <!-- QR Code Frame -->
           <div class="qr-frame-box">
             <div id="receive-qrcode"></div>
           </div>
 
-          <div style="margin-top: 10px;">
-            <h4 id="qr-merchant-name" style="font-size:1rem; font-weight:700; color:#fff;">User Name</h4>
-            <p id="qr-merchant-phone" style="font-size:0.82rem; color:var(--emerald-500); font-weight:600;">+91 9876543210</p>
+          <div>
+            <h4 id="qr-merchant-name" style="font-size:1.05rem; font-weight:700; color:var(--ios-text-primary);">User Name</h4>
+            <p id="qr-merchant-phone" style="font-size:0.82rem; color:var(--ios-green); font-weight:600;">+91 9876543210</p>
+            <p id="qr-device-id-label" style="font-size:0.7rem; color:var(--ios-text-secondary); margin-top:3px; font-family:monospace;"></p>
           </div>
 
           <div class="input-group" style="margin-top: 16px; text-align: left;">
-            <label class="input-label">Request Specific Amount (Optional)</label>
+            <label class="input-label">Request Fixed Bill Amount (Optional)</label>
             <div style="display:flex; gap:8px;">
-              <input type="number" id="receive-amount-input" class="text-input" placeholder="e.g. 150 (Leave blank for open amount)">
+              <input type="number" id="receive-amount-input" class="text-input" placeholder="e.g. 150 (Leave empty for open amount)">
               <button id="btn-update-receive-qr" class="btn-secondary" style="width: auto; padding: 0 16px;">Set</button>
             </div>
           </div>
 
           <button id="btn-scan-voucher-counter" class="btn-primary mt-2">
-            📷 Scan Buyer's Payment Voucher
+            📷 Scan Customer's Payment Voucher
           </button>
         </div>
       </section>
@@ -210,9 +455,9 @@
       <!-- ================= TAB 4: OFFLINE PAY VOUCHER ================= -->
       <section id="tab-voucher" class="tab-view hidden">
         <div class="card">
-          <h3 style="font-size:1.1rem; font-weight:700; color:#fff;">Generate Offline Pay Voucher</h3>
-          <p style="font-size:0.78rem; color:var(--text-muted); margin-top:4px; margin-bottom:16px;">
-            Create a cryptographically signed, single-use payment QR from your offline balance. The merchant scans it to collect money.
+          <h3 style="font-size:1.1rem; font-weight:700; color:var(--ios-text-primary);">Generate Offline Pay Voucher</h3>
+          <p style="font-size:0.78rem; color:var(--ios-text-secondary); margin-top:4px; margin-bottom:16px;">
+            Sign a single-use payment voucher offline from your pocket cash. The merchant scans it to collect money.
           </p>
 
           <div class="input-group">
@@ -221,13 +466,13 @@
           </div>
 
           <div class="input-group">
-            <label class="input-label">Merchant / Recipient Phone (Optional)</label>
-            <input type="tel" id="voucher-payee-phone" class="text-input" placeholder="e.g. 9876543210 or leave blank for Any">
+            <label class="input-label">Recipient Phone or Device ID (Optional)</label>
+            <input type="text" id="voucher-payee-phone" class="text-input" placeholder="e.g. 9876543210 or leave blank for Any">
           </div>
 
           <div class="input-group">
-            <label class="input-label">4-Digit Wallet Security PIN</label>
-            <input type="password" id="voucher-pin" class="text-input" maxlength="4" placeholder="••••" pattern="[0-9]*">
+            <label class="input-label">Security PIN (Default: 1234)</label>
+            <input type="password" id="voucher-pin" class="text-input" maxlength="4" placeholder="••••" value="1234">
           </div>
 
           <button id="btn-generate-voucher" class="btn-primary mt-4">
@@ -235,9 +480,9 @@
           </button>
         </div>
 
-        <!-- Generated Voucher QR Container -->
+        <!-- Generated Voucher Card -->
         <div id="generated-voucher-card" class="card text-center hidden">
-          <div style="display:inline-block; padding:4px 12px; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); border-radius:12px; color:var(--emerald-500); font-size:0.75rem; font-weight:700; margin-bottom:10px;">
+          <div style="display:inline-block; padding:4px 12px; background:rgba(52,199,89,0.15); border:1px solid rgba(52,199,89,0.3); border-radius:14px; color:var(--ios-green); font-size:0.75rem; font-weight:700; margin-bottom:10px;">
             🔐 Cryptographically Signed Offline Voucher
           </div>
 
@@ -245,140 +490,339 @@
             <div id="voucher-qrcode"></div>
           </div>
 
-          <h4 id="voucher-display-amount" style="font-size:1.3rem; font-weight:800; color:#fff; margin-top:8px;">₹0.00</h4>
-          <p id="voucher-display-id" style="font-size:0.72rem; color:var(--text-muted); word-break:break-all; margin-top:4px;"></p>
+          <h4 id="voucher-display-amount" style="font-size:1.4rem; font-weight:800; color:var(--ios-text-primary); margin-top:8px;">₹0.00</h4>
+          <p id="voucher-display-id" style="font-size:0.72rem; color:var(--ios-text-secondary); word-break:break-all; margin-top:4px; font-family:monospace;"></p>
 
-          <p style="font-size:0.78rem; color:#cbd5e1; margin-top:12px;">
+          <p style="font-size:0.78rem; color:var(--ios-text-secondary); margin-top:12px;">
             Show this QR to the merchant to scan. Your offline balance has been reserved.
           </p>
 
-          <button id="btn-close-voucher" class="btn-secondary mt-4">Close Voucher</button>
+          <button id="btn-close-voucher" class="btn-secondary mt-4">Dismiss Voucher</button>
         </div>
       </section>
 
       <!-- ================= TAB 5: TRANSACTION LEDGER ================= -->
       <section id="tab-history" class="tab-view hidden">
         <div class="card">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
             <div>
-              <h3 style="font-size:1.1rem; font-weight:700; color:#fff;">Transaction Ledger</h3>
-              <p style="font-size:0.74rem; color:var(--text-muted);">Complete local & synced records</p>
+              <h3 style="font-size:1.1rem; font-weight:700; color:var(--ios-text-primary);">Transaction Ledger</h3>
+              <p style="font-size:0.74rem; color:var(--ios-text-secondary);">Full offline & cloud synced records</p>
             </div>
             <button id="btn-sync-all" class="btn-primary" style="width:auto; padding:8px 14px; font-size:0.8rem;">
               🔄 Sync Now
             </button>
           </div>
 
+          <!-- iOS Search Bar -->
+          <div class="ios-search-bar">
+            <span>🔍</span>
+            <input type="text" id="ledger-search-input" placeholder="Search by name, phone, or Txn ID...">
+          </div>
+
           <!-- Filter Pills -->
-          <div style="display:flex; gap:6px; margin-bottom:14px;">
-            <button class="filter-pill active" data-filter="ALL" style="background:#1e293b; color:#fff; border:1px solid #334155; padding:4px 10px; border-radius:8px; font-size:0.75rem; cursor:pointer;">All</button>
-            <button class="filter-pill" data-filter="PENDING" style="background:#1e293b; color:#f59e0b; border:1px solid #334155; padding:4px 10px; border-radius:8px; font-size:0.75rem; cursor:pointer;">Pending Offline</button>
-            <button class="filter-pill" data-filter="SENT" style="background:#1e293b; color:#fff; border:1px solid #334155; padding:4px 10px; border-radius:8px; font-size:0.75rem; cursor:pointer;">Sent</button>
-            <button class="filter-pill" data-filter="RECEIVED" style="background:#1e293b; color:#fff; border:1px solid #334155; padding:4px 10px; border-radius:8px; font-size:0.75rem; cursor:pointer;">Received</button>
+          <div style="display:flex; gap:6px; margin-bottom:14px; overflow-x:auto;">
+            <button class="filter-pill active" data-filter="ALL" style="background:var(--ios-card-secondary); color:var(--ios-text-primary); border:1px solid var(--ios-border); padding:5px 12px; border-radius:10px; font-size:0.75rem; cursor:pointer;">All</button>
+            <button class="filter-pill" data-filter="PENDING" style="background:var(--ios-card-secondary); color:var(--ios-orange); border:1px solid var(--ios-border); padding:5px 12px; border-radius:10px; font-size:0.75rem; cursor:pointer;">Pending Offline</button>
+            <button class="filter-pill" data-filter="SENT" style="background:var(--ios-card-secondary); color:var(--ios-text-primary); border:1px solid var(--ios-border); padding:5px 12px; border-radius:10px; font-size:0.75rem; cursor:pointer;">Sent</button>
+            <button class="filter-pill" data-filter="RECEIVED" style="background:var(--ios-card-secondary); color:var(--ios-text-primary); border:1px solid var(--ios-border); padding:5px 12px; border-radius:10px; font-size:0.75rem; cursor:pointer;">Received</button>
           </div>
 
           <div id="full-txns-list" class="transaction-list">
             <!-- Dynamically populated -->
           </div>
+
+          <button id="btn-export-statement" class="btn-secondary mt-4" style="font-size:0.82rem;">
+            📥 Export Account Statement (CSV / Proof)
+          </button>
         </div>
+      </section>
+
+      <!-- ================= TAB 6: SETTINGS & CLOUD PROFILE ================= -->
+      <section id="tab-settings" class="tab-view hidden">
+        
+        <!-- Profile Card -->
+        <div class="card text-center" style="padding:24px 18px;">
+          <div id="settings-avatar" style="width:68px; height:68px; border-radius:50%; background:linear-gradient(135deg, var(--ios-blue), var(--ios-purple)); margin:0 auto 10px; display:flex; align-items:center; justify-content:center; font-size:1.8rem; color:#fff; box-shadow:0 8px 20px rgba(0,122,255,0.35);">
+            ⚡
+          </div>
+          <h3 id="settings-user-name" style="font-size:1.2rem; font-weight:700; color:var(--ios-text-primary);">User Name</h3>
+          <p id="settings-user-phone" style="font-size:0.85rem; color:var(--ios-text-secondary); margin-top:2px;">+91 9876543210</p>
+          
+          <div style="margin-top:10px; display:inline-block; padding:4px 12px; background:rgba(52,199,89,0.15); border:1px solid rgba(52,199,89,0.3); border-radius:12px; color:var(--ios-green); font-size:0.75rem; font-weight:700;">
+            ✓ Mobile Verified Identity
+          </div>
+
+          <div style="margin-top:10px;">
+            <button id="btn-settings-switch-account" class="btn-secondary" style="width:auto; padding:6px 14px; font-size:0.75rem; border-radius:12px; margin:0 auto;">
+              📲 Switch Account / Login
+            </button>
+          </div>
+
+          <!-- Lifetime User Metrics -->
+          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-top:16px; padding-top:14px; border-top:1px solid var(--ios-border);">
+            <div style="background:var(--ios-card-secondary); padding:8px 6px; border-radius:10px;">
+              <div style="font-size:0.68rem; color:var(--ios-text-secondary); text-transform:uppercase; font-weight:600;">Total Spent</div>
+              <div id="settings-total-spent" style="font-size:0.88rem; font-weight:700; color:var(--ios-text-primary); margin-top:2px;">₹0.00</div>
+            </div>
+            <div style="background:var(--ios-card-secondary); padding:8px 6px; border-radius:10px;">
+              <div style="font-size:0.68rem; color:var(--ios-text-secondary); text-transform:uppercase; font-weight:600;">Received</div>
+              <div id="settings-total-received" style="font-size:0.88rem; font-weight:700; color:var(--ios-green); margin-top:2px;">₹0.00</div>
+            </div>
+            <div style="background:var(--ios-card-secondary); padding:8px 6px; border-radius:10px;">
+              <div style="font-size:0.68rem; color:var(--ios-text-secondary); text-transform:uppercase; font-weight:600;">Total Txns</div>
+              <div id="settings-txn-count" style="font-size:0.88rem; font-weight:700; color:var(--ios-blue); margin-top:2px;">0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Device Identity & Terminal Card -->
+        <div class="ios-list-group">
+          <div class="ios-list-row">
+            <div class="ios-list-left">
+              <div class="ios-list-icon" style="background:var(--ios-blue);">📱</div>
+              <div>
+                <div class="ios-list-title">Current Terminal</div>
+                <div id="settings-device-name" class="ios-list-sub">Apple iPhone 15 Pro</div>
+              </div>
+            </div>
+            <div class="ios-list-right">
+              <span id="settings-device-id" style="font-family:monospace; font-size:0.72rem;">DEV-IPHONE</span>
+            </div>
+          </div>
+
+          <div class="ios-list-row" id="row-rename-device">
+            <div class="ios-list-left">
+              <div class="ios-list-icon" style="background:var(--ios-purple);">🏷️</div>
+              <div>
+                <div class="ios-list-title">Device Label</div>
+                <div class="ios-list-sub">Rename this device terminal</div>
+              </div>
+            </div>
+            <div class="ios-list-right">›</div>
+          </div>
+        </div>
+
+        <!-- Linked Bank Account & Profile -->
+        <div class="ios-list-group">
+          <div class="ios-list-row" id="row-edit-bank" style="cursor:pointer;">
+            <div class="ios-list-left">
+              <div class="ios-list-icon" style="background:#0284c7;">🏦</div>
+              <div>
+                <div class="ios-list-title">Settlement Bank Account</div>
+                <div id="settings-bank-summary" class="ios-list-sub">SBI •••• 9012</div>
+              </div>
+            </div>
+            <div class="ios-list-right">›</div>
+          </div>
+        </div>
+
+        <!-- Google Firebase Cloud Vault -->
+        <div class="ios-list-group">
+          <div class="ios-list-row" id="row-firebase-sync" style="cursor:pointer;">
+            <div class="ios-list-left">
+              <div class="ios-list-icon" style="background:#ea580c;">🔥</div>
+              <div>
+                <div class="ios-list-title">Firebase Cloud Vault</div>
+                <div id="settings-firebase-status" class="ios-list-sub">Firestore Connected (Offline Synced)</div>
+              </div>
+            </div>
+            <div class="ios-list-right">
+              <button id="btn-sync-firebase-now" class="btn-primary" style="padding:6px 12px; font-size:0.75rem; width:auto;">Sync</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Permanent Data Vault & Central Ledger -->
+        <div class="ios-list-group">
+          <div class="ios-list-row" id="row-open-data-vault" style="cursor:pointer;">
+            <div class="ios-list-left">
+              <div class="ios-list-icon" style="background:#5856d6;">📊</div>
+              <div>
+                <div class="ios-list-title">Data Vault & Central Ledger</div>
+                <div class="ios-list-sub">All payments, users & double-entry records</div>
+              </div>
+            </div>
+            <div class="ios-list-right">›</div>
+          </div>
+
+          <div class="ios-list-row" id="row-export-vault" style="cursor:pointer;">
+            <div class="ios-list-left">
+              <div class="ios-list-icon" style="background:#30b0c7;">💾</div>
+              <div>
+                <div class="ios-list-title">Export Database Audit (JSON)</div>
+                <div class="ios-list-sub">Complete snapshot of all tables & ledgers</div>
+              </div>
+            </div>
+            <div class="ios-list-right">
+              <span style="font-size:0.75rem; color:var(--ios-blue); font-weight:600;">Download</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cloud Data & Storage -->
+        <div class="ios-list-group">
+          <div class="ios-list-row" id="row-cloud-backup">
+            <div class="ios-list-left">
+              <div class="ios-list-icon" style="background:var(--ios-orange);">☁️</div>
+              <div>
+                <div class="ios-list-title">Backup to Cloud Vault</div>
+                <div id="settings-last-backup" class="ios-list-sub">Never backed up</div>
+              </div>
+            </div>
+            <div class="ios-list-right">
+              <button class="btn-primary" style="padding:6px 14px; font-size:0.75rem; width:auto;">Backup</button>
+            </div>
+          </div>
+
+          <div class="ios-list-row" id="row-cloud-restore">
+            <div class="ios-list-left">
+              <div class="ios-list-icon" style="background:var(--ios-mint);">📥</div>
+              <div>
+                <div class="ios-list-title">Restore from Cloud</div>
+                <div class="ios-list-sub">Sync across multiple devices</div>
+              </div>
+            </div>
+            <div class="ios-list-right">›</div>
+          </div>
+        </div>
+
+        <!-- Preferences & Biometrics -->
+        <div class="ios-list-group">
+          <div class="ios-list-row">
+            <div class="ios-list-left">
+              <div class="ios-list-icon" style="background:var(--ios-green);">👤</div>
+              <div>
+                <div class="ios-list-title">Face ID / Biometrics</div>
+                <div class="ios-list-sub">Require biometric verification for payments</div>
+              </div>
+            </div>
+            <div class="ios-list-right">
+              <label class="ios-switch">
+                <input type="checkbox" id="switch-face-id" checked>
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="ios-list-row">
+            <div class="ios-list-left">
+              <div class="ios-list-icon" style="background:#ff2d55);">🌓</div>
+              <div>
+                <div class="ios-list-title">Dark Mode Theme</div>
+                <div class="ios-list-sub">Toggle Apple Dark / Light mode</div>
+              </div>
+            </div>
+            <div class="ios-list-right">
+              <label class="ios-switch">
+                <input type="checkbox" id="switch-dark-mode" checked>
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="ios-list-row">
+            <div class="ios-list-left">
+              <div class="ios-list-icon" style="background:#ff9500);">🔊</div>
+              <div>
+                <div class="ios-list-title">Soundbox & Voice Alerts</div>
+                <div class="ios-list-sub">Announce payment arrivals aloud</div>
+              </div>
+            </div>
+            <div class="ios-list-right">
+              <label class="ios-switch">
+                <input type="checkbox" id="switch-soundbox" checked>
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Security & Session -->
+        <div class="ios-list-group">
+          <div class="ios-list-row" id="row-change-pin">
+            <div class="ios-list-left">
+              <div class="ios-list-icon" style="background:#636366;">🔢</div>
+              <div>
+                <div class="ios-list-title">Change 4-Digit Security PIN</div>
+                <div class="ios-list-sub">Update wallet transaction PIN</div>
+              </div>
+            </div>
+            <div class="ios-list-right">›</div>
+          </div>
+
+          <div class="ios-list-row" id="row-logout" style="color:var(--ios-red);">
+            <div class="ios-list-left">
+              <div class="ios-list-icon" style="background:var(--ios-red);">🚪</div>
+              <div>
+                <div class="ios-list-title" style="color:var(--ios-red); font-weight:600;">Log Out</div>
+                <div class="ios-list-sub">Sign out from this device</div>
+              </div>
+            </div>
+            <div class="ios-list-right">›</div>
+          </div>
+        </div>
+
       </section>
 
     </main>
 
-    <!-- Bottom Navigation Bar -->
+    <!-- Bottom Navigation Bar with Animated Sliding Indicator Pill -->
     <nav class="bottom-nav">
-      <button class="nav-item active" data-tab="tab-home">
-        <span class="nav-icon">🏠</span>
+      <div id="nav-indicator-pill" class="nav-indicator-pill"></div>
+      
+      <button class="nav-item active" data-tab="tab-home" data-index="0">
+        <span class="nav-icon">💳</span>
         <span class="nav-label">Wallet</span>
       </button>
-      <button class="nav-item" data-tab="tab-scan">
+      <button class="nav-item" data-tab="tab-scan" data-index="1">
         <span class="nav-icon">📷</span>
-        <span class="nav-label">Scan & Pay</span>
+        <span class="nav-label">Scan</span>
       </button>
-      <button class="nav-item" data-tab="tab-receive">
+      <button class="nav-item" data-tab="tab-receive" data-index="2">
         <span class="nav-icon">📥</span>
         <span class="nav-label">Receive</span>
       </button>
-      <button class="nav-item" data-tab="tab-voucher">
+      <button class="nav-item" data-tab="tab-voucher" data-index="3">
         <span class="nav-icon">🎫</span>
-        <span class="nav-label">Pay Token</span>
+        <span class="nav-label">Token</span>
       </button>
-      <button class="nav-item" data-tab="tab-history">
-        <span class="nav-icon">📑</span>
-        <span class="nav-label">Ledger</span>
+      <button class="nav-item" data-tab="tab-settings" data-index="4">
+        <span class="nav-icon">⚙️</span>
+        <span class="nav-label">Settings</span>
       </button>
     </nav>
 
     <!-- ================= MODALS & POPUPS ================= -->
 
-    <!-- 1. MOBILE LOGIN & VERIFICATION MODAL -->
-    <div id="auth-modal" class="modal-overlay">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 id="auth-modal-title">🔐 Mobile Verification</h3>
-        </div>
-
-        <!-- Step 1: Mobile Phone Number Input -->
-        <div id="auth-step-phone">
-          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:16px;">
-            Enter your mobile number to receive a real verification code and setup your offline wallet.
-          </p>
-
-          <div class="input-group">
-            <label class="input-label">Full Name</label>
-            <input type="text" id="auth-name" class="text-input" placeholder="e.g. Alex Sharma" value="Alex Sharma">
-          </div>
-
-          <div class="input-group">
-            <label class="input-label">Mobile Number</label>
-            <input type="tel" id="auth-phone" class="text-input" placeholder="+91 9876543210" value="+91 9876543210">
-          </div>
-
-          <button id="btn-send-otp" class="btn-primary mt-4">
-            📲 Send Verification Code
-          </button>
-        </div>
-
-        <!-- Step 2: OTP Verification Code -->
-        <div id="auth-step-otp" class="hidden">
-          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:16px;">
-            Verification code dispatched to <b id="otp-target-phone" style="color:#fff;"></b>. Check your device notifications or screen alert.
-          </p>
-
-          <div class="input-group">
-            <label class="input-label">6-Digit Verification Code</label>
-            <input type="text" id="auth-otp-input" class="text-input" maxlength="6" placeholder="123456" style="letter-spacing:6px; font-size:1.3rem; text-align:center; font-weight:800;">
-          </div>
-
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-            <span id="otp-timer" style="font-size:0.75rem; color:var(--text-muted);">Expires in 05:00</span>
-            <span id="btn-resend-otp" style="font-size:0.75rem; color:var(--emerald-500); cursor:pointer; font-weight:600;">Resend OTP</span>
-          </div>
-
-          <button id="btn-verify-otp" class="btn-primary">
-            ✅ Verify & Open Wallet
-          </button>
-        </div>
+    <!-- 1. FACE ID / BIOMETRIC SCANNING OVERLAY -->
+    <div id="faceid-modal" class="faceid-modal-overlay">
+      <div class="faceid-box">
+        <div id="faceid-glyph" class="faceid-scanner-glyph">👤</div>
+        <h4 id="faceid-title" style="font-size:1.05rem; font-weight:700; color:#fff;">Face ID</h4>
+        <p id="faceid-sub" style="font-size:0.75rem; color:#8e8e93; margin-top:4px;">Verifying Biometrics...</p>
       </div>
     </div>
 
     <!-- 2. PAYMENT CONFIRMATION MODAL -->
     <div id="payment-confirm-modal" class="modal-overlay">
       <div class="modal-content">
+        <div class="sheet-grabber"></div>
         <div class="modal-header">
-          <h3>⚡ Confirm Offline Payment</h3>
+          <h3>⚡ Confirm Payment</h3>
           <button class="close-btn" id="btn-close-confirm">&times;</button>
         </div>
 
-        <div style="background:#0f172a; border-radius:12px; padding:16px; margin-bottom:16px; border:1px solid #1e293b;">
-          <div style="font-size:0.75rem; color:var(--text-muted);">Paying To:</div>
-          <div id="confirm-payee-name" style="font-size:1.05rem; font-weight:700; color:#fff; margin-top:2px;">Merchant</div>
-          <div id="confirm-payee-phone" style="font-size:0.82rem; color:var(--emerald-500); font-weight:600;"></div>
+        <div style="background:var(--ios-card-secondary); border-radius:14px; padding:16px; margin-bottom:16px; border:1px solid var(--ios-border);">
+          <div style="font-size:0.75rem; color:var(--ios-text-secondary);">Recipient Terminal:</div>
+          <div id="confirm-payee-name" style="font-size:1.1rem; font-weight:700; color:var(--ios-text-primary); margin-top:2px;">Merchant</div>
+          <div id="confirm-payee-phone" style="font-size:0.82rem; color:var(--ios-green); font-weight:600;"></div>
+          <div id="confirm-device-tag" style="font-size:0.7rem; color:var(--ios-text-secondary); margin-top:4px; font-family:monospace;"></div>
         </div>
 
         <div class="input-group">
           <label class="input-label">Amount to Pay (₹)</label>
-          <input type="number" id="confirm-amount" class="text-input" placeholder="0.00" min="1" style="font-size:1.2rem; font-weight:700;">
+          <input type="number" id="confirm-amount" class="text-input" placeholder="0.00" min="1" style="font-size:1.3rem; font-weight:800;">
         </div>
 
         <div class="input-group">
@@ -386,7 +830,7 @@
           <input type="password" id="confirm-pin" class="text-input" maxlength="4" placeholder="••••" value="1234">
         </div>
 
-        <div style="font-size:0.74rem; color:var(--text-muted); margin-bottom:14px;">
+        <div style="font-size:0.75rem; color:var(--ios-text-secondary); margin-bottom:14px;">
           Available Offline Balance: ₹<span id="confirm-avail-balance">0.00</span>
         </div>
 
@@ -396,45 +840,56 @@
       </div>
     </div>
 
-    <!-- 3. PAYMENT SUCCESS / RECEIPT MODAL -->
+    <!-- 3. PAYMENT RECEIPT MODAL -->
     <div id="receipt-modal" class="modal-overlay">
       <div class="modal-content">
+        <div class="sheet-grabber"></div>
         <div class="modal-header">
           <h3>Payment Receipt</h3>
           <button class="close-btn" id="btn-close-receipt">&times;</button>
         </div>
 
-        <div class="receipt-box">
+        <div style="background:#ffffff; color:#000000; border-radius:24px; padding:22px; box-shadow:0 12px 35px rgba(0,0,0,0.5);">
           <div style="display:flex; justify-content:space-between; align-items:flex-start;">
             <div>
-              <div class="receipt-stamp">✅ OFFLINE VERIFIED</div>
-              <h2 id="receipt-amount" style="font-size:1.8rem; font-weight:800; color:#0f172a; margin-top:6px;">₹0.00</h2>
+              <div style="display:inline-block; padding:3px 10px; background:#dcfce7; color:#15803d; border-radius:12px; font-size:0.75rem; font-weight:700;">
+                ✓ OFFLINE VERIFIED
+              </div>
+              <h2 id="receipt-amount" style="font-size:2rem; font-weight:800; color:#0f172a; margin-top:6px;">₹0.00</h2>
             </div>
-            <div style="font-size:1.8rem;">⚡</div>
+            <div style="font-size:2rem;">⚡</div>
           </div>
 
           <hr style="border:none; border-top:1px dashed #cbd5e1; margin:14px 0;">
 
-          <div style="font-size:0.8rem; color:#475569; display:flex; flex-direction:column; gap:6px;">
+          <div style="font-size:0.8rem; color:#475569; display:flex; flex-direction:column; gap:7px;">
             <div style="display:flex; justify-content:space-between;">
-              <span>Transaction ID:</span>
-              <b id="receipt-id" style="font-size:0.72rem; word-break:break-all;"></b>
+              <span>Txn ID:</span>
+              <b id="receipt-id" style="font-size:0.72rem; word-break:break-all; font-family:monospace;"></b>
             </div>
             <div style="display:flex; justify-content:space-between;">
-              <span>Recipient:</span>
+              <span>To:</span>
               <b id="receipt-recipient"></b>
             </div>
             <div style="display:flex; justify-content:space-between;">
-              <span>Payer:</span>
+              <span>From:</span>
               <b id="receipt-payer"></b>
             </div>
             <div style="display:flex; justify-content:space-between;">
-              <span>Timestamp:</span>
+              <span>Time:</span>
               <b id="receipt-time"></b>
             </div>
             <div style="display:flex; justify-content:space-between;">
               <span>Crypto Proof:</span>
-              <b id="receipt-sig" style="font-size:0.68rem; color:#059669;">HMAC-SHA256</b>
+              <b id="receipt-sig" style="font-size:0.68rem; color:#15803d; font-family:monospace;"></b>
+            </div>
+            <div style="display:flex; justify-content:space-between;">
+              <span>Ledger Impact:</span>
+              <b id="receipt-ledger-impact" style="font-size:0.72rem; color:var(--ios-blue);">Double-Entry Verified</b>
+            </div>
+            <div style="display:flex; justify-content:space-between;">
+              <span>Terminal:</span>
+              <b id="receipt-device-info" style="font-family:monospace; font-size:0.7rem; color:#64748b;"></b>
             </div>
           </div>
         </div>
@@ -443,16 +898,42 @@
       </div>
     </div>
 
-    <!-- 4. ALLOCATE TO OFFLINE MODAL -->
+    <!-- 4. ADD CONTACT MODAL -->
+    <div id="contact-modal" class="modal-overlay">
+      <div class="modal-content">
+        <div class="sheet-grabber"></div>
+        <div class="modal-header">
+          <h3>+ Add Beneficiary</h3>
+          <button class="close-btn" id="btn-close-contact">&times;</button>
+        </div>
+
+        <div class="input-group">
+          <label class="input-label">Contact / Store Name</label>
+          <input type="text" id="contact-name-input" class="text-input" placeholder="e.g. John Doe">
+        </div>
+
+        <div class="input-group">
+          <label class="input-label">Mobile Phone Number</label>
+          <input type="tel" id="contact-phone-input" class="text-input" placeholder="+91 9876543210">
+        </div>
+
+        <button id="btn-save-contact" class="btn-primary mt-2">
+          Save Contact
+        </button>
+      </div>
+    </div>
+
+    <!-- 5. ALLOCATE CASH MODAL -->
     <div id="allocate-modal" class="modal-overlay">
       <div class="modal-content">
+        <div class="sheet-grabber"></div>
         <div class="modal-header">
           <h3>⚡ Allocate Offline Cash</h3>
           <button class="close-btn" id="btn-close-allocate">&times;</button>
         </div>
 
-        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:14px;">
-          Transfer money from your Online Bank Vault to your device's Offline Pocket Cash so you can pay without internet.
+        <p style="font-size:0.8rem; color:var(--ios-text-secondary); margin-bottom:14px;">
+          Move funds from your Online Bank Vault to this device's Offline Pocket Cash for spending without network.
         </p>
 
         <div class="input-group">
@@ -460,11 +941,10 @@
           <input type="number" id="allocate-amount" class="text-input" placeholder="e.g. 500" value="500">
         </div>
 
-        <!-- Quick Chips -->
         <div style="display:flex; gap:6px; margin-bottom:16px;">
-          <button class="chip-btn" data-amt="200" style="background:#1e293b; color:#fff; border:1px solid #334155; padding:6px 12px; border-radius:8px; cursor:pointer;">+₹200</button>
-          <button class="chip-btn" data-amt="500" style="background:#1e293b; color:#fff; border:1px solid #334155; padding:6px 12px; border-radius:8px; cursor:pointer;">+₹500</button>
-          <button class="chip-btn" data-amt="1000" style="background:#1e293b; color:#fff; border:1px solid #334155; padding:6px 12px; border-radius:8px; cursor:pointer;">+₹1,000</button>
+          <button class="chip-btn" data-amt="200" style="background:var(--ios-card-secondary); color:var(--ios-text-primary); border:1px solid var(--ios-border); padding:7px 14px; border-radius:10px; cursor:pointer;">+₹200</button>
+          <button class="chip-btn" data-amt="500" style="background:var(--ios-card-secondary); color:var(--ios-text-primary); border:1px solid var(--ios-border); padding:7px 14px; border-radius:10px; cursor:pointer;">+₹500</button>
+          <button class="chip-btn" data-amt="1000" style="background:var(--ios-card-secondary); color:var(--ios-text-primary); border:1px solid var(--ios-border); padding:7px 14px; border-radius:10px; cursor:pointer;">+₹1,000</button>
         </div>
 
         <button id="btn-submit-allocate" class="btn-primary">
@@ -473,9 +953,10 @@
       </div>
     </div>
 
-    <!-- 5. TOP UP BANK MODAL -->
+    <!-- 6. TOP UP BANK MODAL -->
     <div id="topup-modal" class="modal-overlay">
       <div class="modal-content">
+        <div class="sheet-grabber"></div>
         <div class="modal-header">
           <h3>🏦 Add Bank Funds</h3>
           <button class="close-btn" id="btn-close-topup">&times;</button>
@@ -489,6 +970,136 @@
         <button id="btn-submit-topup" class="btn-primary mt-2">
           Add to Bank Vault
         </button>
+      </div>
+    </div>
+
+    <!-- 7. BANK DETAILS MODAL -->
+    <div id="bank-modal" class="modal-overlay">
+      <div class="modal-content">
+        <div class="sheet-grabber"></div>
+        <div class="modal-header">
+          <h3>🏦 Settlement Bank Details</h3>
+          <button class="close-btn" id="btn-close-bank-modal">&times;</button>
+        </div>
+
+        <p style="font-size:0.8rem; color:var(--ios-text-secondary); margin-bottom:14px;">
+          Update your linked bank account and UPI details for real-world settlement and SMS notifications.
+        </p>
+
+        <div class="input-group">
+          <label class="input-label">Bank Name</label>
+          <input type="text" id="edit-bank-name" class="text-input" placeholder="e.g. State Bank of India">
+        </div>
+
+        <div class="input-group">
+          <label class="input-label">Account Number</label>
+          <input type="text" id="edit-bank-account" class="text-input" placeholder="e.g. 501004928190">
+        </div>
+
+        <div class="input-group">
+          <label class="input-label">IFSC Code</label>
+          <input type="text" id="edit-bank-ifsc" class="text-input" placeholder="e.g. SBIN0001234">
+        </div>
+
+        <div class="input-group">
+          <label class="input-label">UPI ID</label>
+          <input type="text" id="edit-bank-upi" class="text-input" placeholder="e.g. user@okhdfcbank">
+        </div>
+
+        <button id="btn-save-bank-details" class="btn-primary mt-2">
+          Save Bank Details
+        </button>
+      </div>
+    </div>
+
+    <!-- 8. DATA VAULT & CENTRAL AUDIT LEDGER MODAL -->
+    <div id="modal-data-vault" class="modal-overlay">
+      <div class="modal-content modal-wide">
+        <div class="sheet-grabber"></div>
+        <div class="modal-header">
+          <div>
+            <h3>📊 Data Vault & Audit Ledger</h3>
+            <p style="font-size:0.74rem; color:var(--ios-text-secondary); margin-top:2px;">Complete permanent storage for all users & payments</p>
+          </div>
+          <button class="close-btn" id="btn-close-data-vault">&times;</button>
+        </div>
+
+        <!-- Navigation Tabs inside Vault -->
+        <div class="vault-tabs">
+          <button class="vault-tab-btn active" data-vtab="kpi">Overview</button>
+          <button class="vault-tab-btn" data-vtab="ledger">Double-Entry Ledger</button>
+          <button class="vault-tab-btn" data-vtab="users">All Users</button>
+          <button class="vault-tab-btn" data-vtab="payments">Payments Audit</button>
+        </div>
+
+        <!-- View 1: KPI Overview -->
+        <div id="vtab-view-kpi" class="vault-view">
+          <div class="vault-stats-grid">
+            <div class="vault-kpi-card">
+              <div class="vault-kpi-title">Registered Users</div>
+              <div id="vkpi-users" class="vault-kpi-val">0</div>
+            </div>
+            <div class="vault-kpi-card">
+              <div class="vault-kpi-title">Settled Volume</div>
+              <div id="vkpi-volume" class="vault-kpi-val" style="color:var(--ios-green);">₹0.00</div>
+            </div>
+            <div class="vault-kpi-card">
+              <div class="vault-kpi-title">All Payments</div>
+              <div id="vkpi-txns" class="vault-kpi-val">0</div>
+            </div>
+            <div class="vault-kpi-card">
+              <div class="vault-kpi-title">Ledger Entries</div>
+              <div id="vkpi-ledger" class="vault-kpi-val" style="color:var(--ios-blue);">0</div>
+            </div>
+            <div class="vault-kpi-card">
+              <div class="vault-kpi-title">Active Devices</div>
+              <div id="vkpi-devices" class="vault-kpi-val">0</div>
+            </div>
+            <div class="vault-kpi-card">
+              <div class="vault-kpi-title">Login Sessions</div>
+              <div id="vkpi-logins" class="vault-kpi-val">0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- View 2: Double-Entry Ledger -->
+        <div id="vtab-view-ledger" class="vault-view hidden">
+          <div style="font-size:0.75rem; color:var(--ios-text-secondary); margin-bottom:8px;">
+            Mathematical balance track: Each transaction records DEBIT & CREDIT entries.
+          </div>
+          <div id="vault-ledger-list" class="vault-data-scroll">
+            <p style="text-align:center; color:var(--ios-text-secondary); padding:20px;">Loading ledger entries...</p>
+          </div>
+        </div>
+
+        <!-- View 3: All Users -->
+        <div id="vtab-view-users" class="vault-view hidden">
+          <div style="font-size:0.75rem; color:var(--ios-text-secondary); margin-bottom:8px;">
+            User profiles with lifetime metrics, wallet balances and device links.
+          </div>
+          <div id="vault-users-list" class="vault-data-scroll">
+            <p style="text-align:center; color:var(--ios-text-secondary); padding:20px;">Loading registered users...</p>
+          </div>
+        </div>
+
+        <!-- View 4: Payments Audit -->
+        <div id="vtab-view-payments" class="vault-view hidden">
+          <div style="font-size:0.75rem; color:var(--ios-text-secondary); margin-bottom:8px;">
+            Immutable payment logs with cryptographic proof, devices and IP trails.
+          </div>
+          <div id="vault-payments-list" class="vault-data-scroll">
+            <p style="text-align:center; color:var(--ios-text-secondary); padding:20px;">Loading payments audit...</p>
+          </div>
+        </div>
+
+        <div style="margin-top:14px; display:flex; gap:8px;">
+          <button id="btn-vault-export-json" class="btn-primary" style="flex:1; font-size:0.82rem;">
+            📥 Download Audit Archive (JSON)
+          </button>
+          <button id="btn-vault-refresh" class="btn-secondary" style="width:auto; padding:10px 14px;">
+            🔄
+          </button>
+        </div>
       </div>
     </div>
 

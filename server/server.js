@@ -9,6 +9,8 @@ const db = require('./db');
 const { router: authRouter } = require('./routes/auth');
 const walletRouter = require('./routes/wallet');
 const transactionsRouter = require('./routes/transactions');
+const cloudRouter = require('./routes/cloud');
+const dataVaultRouter = require('./routes/data-vault');
 
 const app = express();
 const server = http.createServer(app);
@@ -59,6 +61,8 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/wallet', walletRouter);
 app.use('/api/transactions', transactionsRouter);
+app.use('/api/cloud', cloudRouter);
+app.use('/api/data-vault', dataVaultRouter);
 
 // Fallback to PWA SPA index.html for unknown routes
 app.use((req, res) => {

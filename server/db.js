@@ -121,6 +121,120 @@ const initDB = async () => {
       )
     `);
 
+    // Multi-Device Registry: Tracks each separate physical device QR and login
+    await run(`
+      CREATE TABLE IF NOT EXISTS devices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        device_id TEXT UNIQUE NOT NULL,
+        device_name TEXT NOT NULL,
+        platform TEXT,
+        public_key TEXT,
+        is_primary INTEGER DEFAULT 0,
+        last_active_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Contacts / Beneficiaries for Quick-Pay
+    await run(`
+      CREATE TABLE IF NOT EXISTS contacts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        avatar_color TEXT DEFAULT '#34c759',
+        favorite INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Cloud Backups Vault: Stores encrypted snapshot backups of user offline wallets and ledgers
+    await run(`
+      CREATE TABLE IF NOT EXISTS cloud_backups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        device_id TEXT NOT NULL,
+        backup_data TEXT NOT NULL,
+        version INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Double-Entry General Ledger: Tracks each DEBIT and CREDIT mathematically
+    await run(`
+      CREATE TABLE IF NOT EXISTS wallet_ledger_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        txn_id TEXT NOT NULL,
+        user_id INTEGER NOT NULL,
+        entry_type TEXT NOT NULL, -- 'DEBIT' or 'CREDIT'
+        amount REAL NOT NULL,
+        pocket TEXT DEFAULT 'OFFLINE', -- 'OFFLINE' or 'ONLINE'
+        balance_before REAL,
+        balance_after REAL,
+        description TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Comprehensive Payment Audit Trail: Tracks every state transition of every payment
+    await run(`
+      CREATE TABLE IF NOT EXISTS payment_audit_trail (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        txn_id TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        details TEXT,
+        device_id TEXT,
+        ip_address TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // User Login & Session History: Tracks every authentication event
+    await run(`
+      CREATE TABLE IF NOT EXISTS user_login_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        phone TEXT NOT NULL,
+        device_id TEXT,
+        device_name TEXT,
+        ip_address TEXT,
+        user_agent TEXT,
+        auth_method TEXT DEFAULT 'MOBILE_OTP',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Safe Schema Column Migrations
+    const safeAddColumn = async (table, column, typeDef) => {
+      try {
+        await run(`ALTER TABLE ${table} ADD COLUMN ${column} ${typeDef}`);
+      } catch (e) {
+        // Column likely already exists, ignore
+      }
+    };
+
+    await safeAddColumn('transactions', 'payer_device_id', 'TEXT');
+    await safeAddColumn('transactions', 'payee_device_id', 'TEXT');
+    await safeAddColumn('transactions', 'raw_payload', 'TEXT');
+    await safeAddColumn('transactions', 'ip_address', 'TEXT');
+    await safeAddColumn('transactions', 'currency', 'TEXT DEFAULT "INR"');
+
+    await safeAddColumn('users', 'total_spent', 'REAL DEFAULT 0.00');
+    await safeAddColumn('users', 'total_received', 'REAL DEFAULT 0.00');
+    await safeAddColumn('users', 'txn_count', 'INTEGER DEFAULT 0');
+    await safeAddColumn('users', 'last_login_at', 'DATETIME');
+
+    await safeAddColumn('users', 'bank_name', 'TEXT');
+    await safeAddColumn('users', 'bank_account_no', 'TEXT');
+    await safeAddColumn('users', 'bank_ifsc', 'TEXT');
+    await safeAddColumn('users', 'bank_upi_id', 'TEXT');
+
     console.log('✅ SQLite Schema initialized successfully.');
   } catch (err) {
     console.error('❌ Error initializing SQLite schema:', err);
