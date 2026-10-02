@@ -62,6 +62,7 @@ async function runTests() {
 
     // 5. Offline Cash Allocation
     console.log('5️⃣ Testing Offline Balance Allocation (POST /api/wallet/allocate-offline)...');
+    await request('/api/wallet/topup', 'POST', { amount: 1000 }, token);
     const allocRes = await request('/api/wallet/allocate-offline', 'POST', { amount: 500 }, token);
     console.log('   Updated Offline Cash: ₹' + allocRes.data.wallet.offlineAllocatedBalance);
     console.log('   ✅ Offline Allocation PASSED\n');
@@ -254,9 +255,20 @@ async function runTests() {
     if (!fbSyncRes.data.success) {
       throw new Error('Firebase cloud sync failed');
     }
-    console.log('   ✅ Firebase Cloud Vault Sync PASSED\n');
+    // 19. Security PIN / Password Direct Login API
+    console.log('1️⃣9️⃣ Testing Security PIN / Password Direct Login (POST /api/auth/login-pin)...');
+    const pinLoginRes = await request('/api/auth/login-pin', 'POST', {
+      phone: testPhone,
+      pin: '1234'
+    });
+    console.log('   PIN Login Response:', pinLoginRes.data.message);
+    console.log('   Logged In User:', pinLoginRes.data.user.name, `(${pinLoginRes.data.user.phone})`);
+    if (!pinLoginRes.data.success || !pinLoginRes.data.token) {
+      throw new Error('PIN login failed');
+    }
+    console.log('   ✅ Security PIN / Password Direct Login PASSED\n');
 
-    console.log('🎉 ALL 18 TEST SUITES PASSED FLAWLESSLY! PROFILE BANK DETAILS, CONTACTS, GALLERY QR, DUAL SMS & FIREBASE CLOUD VAULT FULLY VERIFIED.');
+    console.log('🎉 ALL 19 TEST SUITES PASSED FLAWLESSLY! PROFILE BANK DETAILS, CONTACTS, GALLERY QR, DUAL SMS, FIREBASE CLOUD VAULT & PIN LOGIN FULLY VERIFIED.');
   } catch (err) {
     console.error('❌ Test failed:', err.message);
     process.exit(1);

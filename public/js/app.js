@@ -272,6 +272,8 @@ function showOnboardingScreen(mode = 'login') {
   if (createStep) createStep.classList.remove('hidden');
   const verifyStep = document.getElementById('onboarding-step-verify');
   if (verifyStep) verifyStep.classList.add('hidden');
+  const pinStep = document.getElementById('onboarding-step-pin');
+  if (pinStep) pinStep.classList.add('hidden');
   if (typeof setAuthMode === 'function') {
     setAuthMode(mode);
   }
@@ -555,21 +557,139 @@ function initOnboardingEvents() {
     btnVerify.addEventListener('click', handleOnboardingVerify);
   }
 
-  // Quick-Fill Button
+  // Quick-Fill Button & Auto-Paste Button
+  const handleQuickFill = () => {
+    if (appState.generatedOtpCode) {
+      fillOtpBoxes(appState.generatedOtpCode);
+      triggerHaptic('success');
+    }
+  };
+
   const btnQuickFill = document.getElementById('btn-ob-quick-fill');
-  if (btnQuickFill) {
-    btnQuickFill.addEventListener('click', () => {
-      if (appState.generatedOtpCode) {
-        fillOtpBoxes(appState.generatedOtpCode);
-        triggerHaptic('success');
-      }
-    });
-  }
+  if (btnQuickFill) btnQuickFill.addEventListener('click', handleQuickFill);
+
+  const btnAutoPaste = document.getElementById('btn-ob-auto-paste');
+  if (btnAutoPaste) btnAutoPaste.addEventListener('click', handleQuickFill);
 
   // Resend Button
   const btnResend = document.getElementById('btn-ob-resend');
   if (btnResend) {
     btnResend.addEventListener('click', handleOnboardingSendCode);
+  }
+
+  // Switch to PIN Login Mode
+  const btnTogglePin = document.getElementById('btn-toggle-pin-login');
+  if (btnTogglePin) {
+    btnTogglePin.addEventListener('click', () => {
+      triggerHaptic('light');
+      const rawPhone = document.getElementById('ob-phone').value.trim();
+      const cc = document.getElementById('ob-country-code').value;
+      const pinPhone = document.getElementById('ob-pin-phone');
+      if (pinPhone && rawPhone) {
+        pinPhone.value = rawPhone.startsWith('+') ? rawPhone : `${cc}${rawPhone}`;
+      }
+      showPinLoginStep();
+    });
+  }
+
+  const btnVerifySwitchPin = document.getElementById('btn-verify-switch-pin');
+  if (btnVerifySwitchPin) {
+    btnVerifySwitchPin.addEventListener('click', () => {
+      triggerHaptic('light');
+      const pinPhone = document.getElementById('ob-pin-phone');
+      if (pinPhone && appState.pendingVerificationPhone) {
+        pinPhone.value = appState.pendingVerificationPhone;
+      }
+      showPinLoginStep();
+    });
+  }
+
+  const btnSwitchBackOtp = document.getElementById('btn-switch-back-otp');
+  if (btnSwitchBackOtp) {
+    btnSwitchBackOtp.addEventListener('click', () => {
+      triggerHaptic('light');
+      showOnboardingStep('create');
+    });
+  }
+
+  const btnPinLogin = document.getElementById('btn-ob-pin-login');
+  if (btnPinLogin) {
+    btnPinLogin.addEventListener('click', handlePinLogin);
+  }
+}
+
+function showPinLoginStep() {
+  document.getElementById('onboarding-step-create')?.classList.add('hidden');
+  document.getElementById('onboarding-step-verify')?.classList.add('hidden');
+  document.getElementById('onboarding-step-pin')?.classList.remove('hidden');
+}
+
+function showOnboardingStep(step) {
+  document.getElementById('onboarding-step-create')?.classList.toggle('hidden', step !== 'create');
+  document.getElementById('onboarding-step-verify')?.classList.toggle('hidden', step !== 'verify');
+  document.getElementById('onboarding-step-pin')?.classList.toggle('hidden', step !== 'pin');
+}
+
+async function handlePinLogin() {
+  const phoneInput = document.getElementById('ob-pin-phone');
+  const pinInput = document.getElementById('ob-security-pin');
+  const rawPhone = phoneInput ? phoneInput.value.trim().replace(/\s+/g, '') : '';
+  const pin = pinInput ? pinInput.value.trim() : '';
+
+  if (!rawPhone || rawPhone.length < 5) {
+    alert('Please enter your mobile phone number');
+    return;
+  }
+  if (!pin || pin.length < 4) {
+    alert('Please enter your 4-digit security PIN (Default: 1234)');
+    return;
+  }
+
+  const fullPhone = rawPhone.startsWith('+') ? rawPhone : (rawPhone.length === 10 ? `+91${rawPhone}` : rawPhone);
+  const btn = document.getElementById('btn-ob-pin-login');
+  btn.disabled = true;
+  btn.textContent = 'Unlocking Wallet...';
+
+  try {
+    const res = await fetch('/api/auth/login-pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone: fullPhone,
+        pin,
+        deviceId: walletEngine.getDeviceId(),
+        deviceName: walletEngine.getDeviceName()
+      })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      walletEngine.setUser(data.user);
+      walletEngine.setAuthToken(data.token);
+      if (data.wallet && data.wallet.offlineAllocatedBalance) {
+        walletEngine.setOfflineBalance(data.wallet.offlineAllocatedBalance);
+      }
+
+      appState.user = data.user;
+      appState.token = data.token;
+
+      document.getElementById('onboarding-screen').classList.add('hidden');
+      soundbox.playPaymentSuccessChime();
+      triggerHaptic('success');
+
+      expandDynamicIsland('🔓', `Welcome, ${data.user.name}!`, 'Unlocked via Security PIN', 4000);
+
+      updateUserHeader();
+      refreshDashboard();
+      autoRegisterDeviceCloud();
+    } else {
+      alert(data.error || 'PIN authentication failed');
+    }
+  } catch (err) {
+    alert('Login error: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔓 Unlock Wallet with PIN';
   }
 }
 
@@ -627,9 +747,19 @@ async function handleOnboardingSendCode() {
       // 3. Expand Apple Dynamic Island with verification code
       expandDynamicIsland('🔑', `Verification Code: ${data.verificationCode}`, `Dispatched to ${fullPhone}`, 8000);
 
-      // 4. Transition to Step 2
-      document.getElementById('onboarding-step-create').classList.add('hidden');
-      document.getElementById('onboarding-step-verify').classList.remove('hidden');
+      // 4. Update on-screen Live SMS Preview Card
+      const codeBadge = document.getElementById('ob-code-badge');
+      if (codeBadge) codeBadge.textContent = data.verificationCode;
+
+      const pill = document.getElementById('ob-sms-status-pill');
+      if (pill) {
+        pill.textContent = data.gatewayConfigured ? 'Delivered via SMS' : 'SMS Code Ready';
+        pill.style.background = data.gatewayConfigured ? 'rgba(52,199,89,0.18)' : 'rgba(0,122,255,0.18)';
+        pill.style.color = data.gatewayConfigured ? 'var(--ios-green)' : 'var(--ios-blue)';
+      }
+
+      // 5. Transition to Step 2
+      showOnboardingStep('verify');
       document.getElementById('ob-display-phone').textContent = fullPhone;
 
       // Clear boxes and focus first
@@ -650,8 +780,10 @@ async function handleOnboardingSendCode() {
 
     expandDynamicIsland('🔑', `Verification Code: ${fallbackCode}`, `Dispatched to ${fullPhone}`, 8000);
 
-    document.getElementById('onboarding-step-create').classList.add('hidden');
-    document.getElementById('onboarding-step-verify').classList.remove('hidden');
+    const codeBadge = document.getElementById('ob-code-badge');
+    if (codeBadge) codeBadge.textContent = fallbackCode;
+
+    showOnboardingStep('verify');
     document.getElementById('ob-display-phone').textContent = fullPhone;
 
     clearOtpBoxes();
@@ -659,7 +791,7 @@ async function handleOnboardingSendCode() {
     startOnboardingTimer();
   } finally {
     sendBtn.disabled = false;
-    sendBtn.textContent = '📲 Create Account & Send Code';
+    sendBtn.textContent = currentAuthMode === 'login' ? '📲 Send Login Code' : '✨ Create Profile & Send Code';
   }
 }
 

@@ -95,6 +95,12 @@ class NotificationService {
       }
     }
 
+    if (!twilioSid && !fast2smsKey) {
+      console.log(`ℹ️ [SMS Notice] Telecom cellular SMS gateway key (FAST2SMS_API_KEY / TWILIO) not set in .env.`);
+      console.log(`🔑 Verification code [${otpCode}] displayed in Dynamic Island and live on-screen SMS card.`);
+      console.log(`💡 To send actual carrier SMS to mobile phones, add FAST2SMS_API_KEY or TWILIO credentials to .env.`);
+    }
+
     // 3. Mark browser/system real notification channel active
     results.channels.push({
       provider: 'device_notification_gateway',

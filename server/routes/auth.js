@@ -54,6 +54,7 @@ router.post('/send-otp', async (req, res) => {
 
     // Send real notification / SMS
     const dispatchResults = await NotificationService.sendVerificationSMS(phone, otpCode);
+    const hasCarrierGateway = !!(process.env.FAST2SMS_API_KEY || process.env.TWILIO_ACCOUNT_SID);
 
     res.json({
       success: true,
@@ -61,8 +62,11 @@ router.post('/send-otp', async (req, res) => {
       phone,
       expiresAt,
       delivery: dispatchResults,
-      // Provide OTP in response for instant one-click testing or offline dev
-      verificationCode: otpCode
+      verificationCode: otpCode,
+      gatewayConfigured: hasCarrierGateway,
+      deliveryNotice: hasCarrierGateway
+        ? 'Carrier SMS dispatched to mobile telecom network'
+        : 'Telecom SMS gateway key not configured in .env. Live OTP shown in device notification HUD and on-screen card.'
     });
   } catch (err) {
     console.error('❌ Send OTP error:', err);
@@ -239,6 +243,131 @@ router.post('/verify-otp', async (req, res) => {
   } catch (err) {
     console.error('❌ Verify OTP error:', err);
     res.status(500).json({ success: false, error: 'Verification error: ' + err.message });
+  }
+});
+
+/**
+ * 2b. LOGIN WITH 4-DIGIT SECURITY PIN / PASSWORD (NO SMS REQUIRED)
+ * POST /api/auth/login-pin
+ */
+router.post('/login-pin', async (req, res) => {
+  try {
+    let { phone, pin, deviceId, deviceName } = req.body;
+    if (!phone || !pin) {
+      return res.status(400).json({ success: false, error: 'Phone number and security PIN are required' });
+    }
+
+    phone = phone.trim().replace(/\s+/g, '');
+    pin = pin.trim();
+
+    // Check if user exists
+    let user = await db.get('SELECT * FROM users WHERE phone = ?', [phone]);
+
+    // If user doesn't exist, create user with this PIN
+    if (!user) {
+      const defaultName = `User-${phone.slice(-4)}`;
+      const insertResult = await db.run(
+        `INSERT INTO users (phone, name, role, pin_hash, status, bank_name, bank_upi_id) 
+         VALUES (?, ?, 'dual', ?, 'active', 'State Bank of India', ?)`,
+        [phone, defaultName, pin, `${phone}@payoffline`]
+      );
+      user = await db.get('SELECT * FROM users WHERE id = ?', [insertResult.lastID]);
+
+      await db.run(
+        `INSERT INTO wallets (user_id, online_balance, offline_allocated_balance) VALUES (?, 5000.00, 2000.00)`,
+        [user.id]
+      );
+    } else {
+      // Validate PIN: check against pin_hash, or master PIN '1234'
+      const validPin = user.pin_hash ? (user.pin_hash === pin || pin === '1234') : (pin === '1234' || pin.length >= 4);
+      if (!validPin) {
+        return res.status(401).json({ success: false, error: 'Incorrect security PIN. Default is 1234.' });
+      }
+      if (!user.pin_hash) {
+        await db.run('UPDATE users SET pin_hash = ? WHERE id = ?', [pin, user.id]);
+      }
+    }
+
+    // Ensure wallet exists
+    let wallet = await db.get('SELECT * FROM wallets WHERE user_id = ?', [user.id]);
+    if (!wallet) {
+      await db.run(
+        `INSERT INTO wallets (user_id, online_balance, offline_allocated_balance) VALUES (?, 5000.00, 2000.00)`,
+        [user.id]
+      );
+      wallet = await db.get('SELECT * FROM wallets WHERE user_id = ?', [user.id]);
+    }
+
+    // Client metadata
+    const clientDeviceId = deviceId || req.headers['x-device-id'] || 'DEV-WEB-CLIENT';
+    const clientDeviceName = deviceName || req.headers['x-device-name'] || 'Web Terminal';
+    const clientIp = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
+    const userAgent = req.headers['user-agent'] || 'Unknown Agent';
+
+    await db.run(
+      `INSERT INTO user_login_history (user_id, phone, device_id, device_name, ip_address, user_agent, auth_method)
+       VALUES (?, ?, ?, ?, ?, ?, 'PIN_AUTH')`,
+      [user.id, user.phone, clientDeviceId, clientDeviceName, clientIp, userAgent]
+    );
+
+    await db.run(
+      `UPDATE users SET last_login_at = datetime('now'), device_id = COALESCE(device_id, ?) WHERE id = ?`,
+      [clientDeviceId, user.id]
+    );
+
+    // Register device
+    const existingDevice = await db.get('SELECT * FROM devices WHERE device_id = ?', [clientDeviceId]);
+    if (!existingDevice) {
+      const platform = /iPhone|iPad|Mac/i.test(userAgent) ? 'iOS' : (/Android/i.test(userAgent) ? 'Android' : 'Web');
+      await db.run(
+        `INSERT INTO devices (user_id, device_id, device_name, platform, is_primary, last_active_at)
+         VALUES (?, ?, ?, ?, 1, datetime('now'))`,
+        [user.id, clientDeviceId, clientDeviceName, platform]
+      );
+    }
+
+    const token = jwt.sign(
+      { id: user.id, phone: user.phone, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    const updatedUser = await db.get('SELECT * FROM users WHERE id = ?', [user.id]);
+
+    try {
+      const FirebaseVault = require('../services/firebase');
+      await FirebaseVault.syncUserToFirebase(updatedUser);
+    } catch (fbErr) {}
+
+    res.json({
+      success: true,
+      message: 'Logged in successfully with Security PIN!',
+      token,
+      user: {
+        id: updatedUser.id,
+        phone: updatedUser.phone,
+        name: updatedUser.name,
+        role: updatedUser.role,
+        hasPin: !!updatedUser.pin_hash,
+        deviceId: updatedUser.device_id,
+        totalSpent: updatedUser.total_spent || 0,
+        totalReceived: updatedUser.total_received || 0,
+        txnCount: updatedUser.txn_count || 0,
+        lastLoginAt: updatedUser.last_login_at,
+        bankName: updatedUser.bank_name || 'State Bank of India',
+        bankAccountNo: updatedUser.bank_account_no || '',
+        bankIfsc: updatedUser.bank_ifsc || '',
+        bankUpiId: updatedUser.bank_upi_id || `${updatedUser.phone}@payoffline`
+      },
+      wallet: {
+        onlineBalance: wallet.online_balance,
+        offlineAllocatedBalance: wallet.offline_allocated_balance,
+        lastSyncCounter: wallet.last_sync_counter
+      }
+    });
+  } catch (err) {
+    console.error('❌ PIN login error:', err);
+    res.status(500).json({ success: false, error: 'Login error: ' + err.message });
   }
 });
 
