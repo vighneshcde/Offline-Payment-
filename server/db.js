@@ -230,6 +230,11 @@ const initDB = async () => {
     await safeAddColumn('users', 'txn_count', 'INTEGER DEFAULT 0');
     await safeAddColumn('users', 'last_login_at', 'DATETIME');
 
+    await safeAddColumn('users', 'bank_name', 'TEXT');
+    await safeAddColumn('users', 'bank_account_no', 'TEXT');
+    await safeAddColumn('users', 'bank_ifsc', 'TEXT');
+    await safeAddColumn('users', 'bank_upi_id', 'TEXT');
+
     console.log('✅ SQLite Schema initialized successfully.');
   } catch (err) {
     console.error('❌ Error initializing SQLite schema:', err);

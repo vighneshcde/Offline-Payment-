@@ -41,11 +41,11 @@
     <div class="onboarding-card">
       <div class="onboarding-logo">⚡</div>
       
-      <!-- Step 1: Create Account Form -->
+      <!-- Step 1: Create Account & Profile Form -->
       <div id="onboarding-step-create">
-        <h2 style="font-size:1.4rem; font-weight:800; color:var(--ios-text-primary); letter-spacing:-0.5px;">Create Your Account</h2>
-        <p style="font-size:0.82rem; color:var(--ios-text-secondary); margin-top:4px; margin-bottom:18px;">
-          Setup your offline wallet and verify this device using your mobile phone number.
+        <h2 style="font-size:1.4rem; font-weight:800; color:var(--ios-text-primary); letter-spacing:-0.5px;">Setup Your Profile</h2>
+        <p style="font-size:0.8rem; color:var(--ios-text-secondary); margin-top:4px; margin-bottom:16px;">
+          Create your profile and link your bank account to enable offline payments and cloud sync.
         </p>
 
         <div class="input-group" style="text-align:left;">
@@ -67,6 +67,44 @@
           </div>
         </div>
 
+        <!-- Bank Details Section -->
+        <div style="background:var(--ios-card-secondary); border:1px solid var(--ios-border); border-radius:14px; padding:12px 14px; margin-bottom:14px; text-align:left;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <span style="font-size:0.8rem; font-weight:700; color:var(--ios-text-primary);">🏦 Bank Account Details</span>
+            <span style="font-size:0.68rem; color:var(--ios-green); font-weight:700;">Required for Vault</span>
+          </div>
+
+          <div class="input-group" style="margin-bottom:8px;">
+            <label class="input-label" style="font-size:0.7rem;">Bank Name</label>
+            <select id="ob-bank-name" class="text-input" style="padding:10px 12px; font-size:0.85rem;">
+              <option value="State Bank of India" selected>State Bank of India (SBI)</option>
+              <option value="HDFC Bank">HDFC Bank</option>
+              <option value="ICICI Bank">ICICI Bank</option>
+              <option value="Punjab National Bank">Punjab National Bank (PNB)</option>
+              <option value="Axis Bank">Axis Bank</option>
+              <option value="Bank of Baroda">Bank of Baroda</option>
+              <option value="Kotak Mahindra Bank">Kotak Mahindra Bank</option>
+              <option value="Other Bank">Other Bank</option>
+            </select>
+          </div>
+
+          <div class="input-group" style="margin-bottom:8px;">
+            <label class="input-label" style="font-size:0.7rem;">Bank Account Number</label>
+            <input type="password" id="ob-bank-account" class="text-input" placeholder="e.g. 50100456789012" value="50100456789012" style="font-size:0.85rem; padding:10px 12px;">
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+            <div class="input-group" style="margin-bottom:0;">
+              <label class="input-label" style="font-size:0.7rem;">IFSC Code</label>
+              <input type="text" id="ob-bank-ifsc" class="text-input" placeholder="SBIN0001234" value="SBIN0001234" style="text-transform:uppercase; font-size:0.85rem; padding:10px 12px;">
+            </div>
+            <div class="input-group" style="margin-bottom:0;">
+              <label class="input-label" style="font-size:0.7rem;">UPI ID</label>
+              <input type="text" id="ob-bank-upi" class="text-input" placeholder="alex@payoffline" value="alex@payoffline" style="font-size:0.85rem; padding:10px 12px;">
+            </div>
+          </div>
+        </div>
+
         <div class="input-group" style="text-align:left;">
           <label class="input-label">Account Role</label>
           <div class="segmented-control" style="margin-bottom:0;">
@@ -78,11 +116,11 @@
         <!-- Real Notification info card -->
         <div class="notif-permission-box">
           <div style="font-size:1.3rem;">🔔</div>
-          <span><b>Real Device Notification:</b> We will send an instant verification code alert directly to this device's notification center.</span>
+          <span><b>Real Device Verification:</b> An instant 6-digit OTP will be dispatched to this device.</span>
         </div>
 
         <button id="btn-ob-send-code" class="btn-primary">
-          📲 Create Account & Send Code
+          📲 Save Profile & Send Code
         </button>
       </div>
 
@@ -191,14 +229,53 @@
           </div>
         </div>
 
-        <!-- Quick-Pay Beneficiaries / Contacts -->
-        <div style="margin-bottom: 6px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <span style="font-size:0.85rem; font-weight:700; color:var(--ios-text-primary);">Quick Pay Beneficiaries</span>
-            <span id="btn-manage-contacts" style="font-size:0.75rem; color:var(--ios-blue); font-weight:600; cursor:pointer;">+ Add Contact</span>
+        <!-- Linked Settlement Bank Card -->
+        <div class="bank-card-hero">
+          <div class="bank-card-top">
+            <div>
+              <div style="font-size:0.65rem; color:#94a3b8; text-transform:uppercase; font-weight:700; letter-spacing:0.5px;">Linked Settlement Bank</div>
+              <div id="home-bank-name" class="bank-name-title">State Bank of India</div>
+            </div>
+            <div class="bank-badge-verified">✓ Verified Account</div>
           </div>
-          <div id="contacts-scroll-row" class="contacts-scroll-row">
-            <!-- Dynamically populated contacts -->
+          <div id="home-bank-account-masked" class="bank-card-acc">•••• •••• 9012</div>
+          <div class="bank-card-sub">
+            <span id="home-bank-ifsc">IFSC: SBIN0001234</span>
+            <span id="home-bank-upi">UPI: alex@payoffline</span>
+          </div>
+        </div>
+
+        <!-- Phone Contacts Directory & Quick Send -->
+        <div class="card" style="margin-bottom:16px; padding:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <div>
+              <span style="font-size:0.9rem; font-weight:700; color:var(--ios-text-primary);">📱 Phone Contacts</span>
+              <p style="font-size:0.72rem; color:var(--ios-text-secondary); margin-top:1px;">Send money offline directly</p>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button id="btn-import-phone-contacts" class="btn-primary" style="width:auto; padding:5px 10px; font-size:0.72rem;">
+                📲 Device Contacts
+              </button>
+              <button id="btn-add-contact-modal" class="btn-secondary" style="width:auto; padding:5px 10px; font-size:0.72rem;">
+                + Add
+              </button>
+            </div>
+          </div>
+
+          <!-- Contacts Search -->
+          <div class="ios-search-bar" style="margin-bottom:10px;">
+            <span>🔍</span>
+            <input type="text" id="contacts-search-input" placeholder="Search phone contacts...">
+          </div>
+
+          <!-- Horizontal Fast Avatars -->
+          <div id="contacts-scroll-row" class="contacts-scroll-row" style="margin-bottom:10px;">
+            <!-- Rendered contacts pills -->
+          </div>
+
+          <!-- Vertical Phone Contacts List -->
+          <div id="phone-contacts-directory-list" style="max-height:190px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
+            <!-- Rendered phone contacts with 'Pay' button -->
           </div>
         </div>
 
@@ -248,18 +325,25 @@
             <div class="scan-laser"></div>
           </div>
 
-          <div style="margin-top:16px; display:flex; gap:10px;">
-            <button id="btn-toggle-camera" class="btn-primary" style="flex:1;">
-              Start Camera Scanner
+          <div style="margin-top:16px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+            <button id="btn-toggle-camera" class="btn-primary" style="padding:12px 6px; font-size:0.8rem;">
+              📷 Camera Scanner
             </button>
-            <label class="btn-secondary" style="flex:1; display:flex; align-items:center; justify-content:center; cursor:pointer;">
-              📁 Upload QR
-              <input type="file" id="qr-file-input" accept="image/*" style="display:none;">
-            </label>
+            <button id="btn-trigger-gallery-pick" class="btn-secondary" style="padding:12px 6px; font-size:0.8rem; background:rgba(0,122,255,0.15); color:var(--ios-blue); border:1px solid rgba(0,122,255,0.3);">
+              🖼️ Pick From Gallery
+            </button>
+          </div>
+          <input type="file" id="qr-file-input" accept="image/*" style="display:none;">
+
+          <!-- Image Preview Area when selected from gallery -->
+          <div id="gallery-preview-box" class="hidden" style="margin-top:14px; text-align:center; padding:12px; background:var(--ios-card-secondary); border-radius:14px; border:1px dashed var(--ios-blue);">
+            <div style="font-size:0.75rem; color:var(--ios-text-secondary); margin-bottom:6px;">Uploaded Gallery Photo:</div>
+            <img id="gallery-preview-img" style="max-height:140px; border-radius:10px; margin:0 auto; display:block; box-shadow:0 4px 12px rgba(0,0,0,0.5);">
+            <div id="gallery-status-text" style="font-size:0.75rem; font-weight:600; color:var(--ios-green); margin-top:6px;">Scanning photo...</div>
           </div>
 
           <div id="scan-feedback" style="margin-top:12px; font-size:0.8rem; text-align:center; color:var(--ios-text-secondary);">
-            Point camera at a PayOffline QR code
+            Point camera or choose a photo from your gallery
           </div>
         </div>
       </section>
@@ -447,6 +531,36 @@
               </div>
             </div>
             <div class="ios-list-right">›</div>
+          </div>
+        </div>
+
+        <!-- Linked Bank Account & Profile -->
+        <div class="ios-list-group">
+          <div class="ios-list-row" id="row-edit-bank" style="cursor:pointer;">
+            <div class="ios-list-left">
+              <div class="ios-list-icon" style="background:#0284c7;">🏦</div>
+              <div>
+                <div class="ios-list-title">Settlement Bank Account</div>
+                <div id="settings-bank-summary" class="ios-list-sub">SBI •••• 9012</div>
+              </div>
+            </div>
+            <div class="ios-list-right">›</div>
+          </div>
+        </div>
+
+        <!-- Google Firebase Cloud Vault -->
+        <div class="ios-list-group">
+          <div class="ios-list-row" id="row-firebase-sync" style="cursor:pointer;">
+            <div class="ios-list-left">
+              <div class="ios-list-icon" style="background:#ea580c;">🔥</div>
+              <div>
+                <div class="ios-list-title">Firebase Cloud Vault</div>
+                <div id="settings-firebase-status" class="ios-list-sub">Firestore Connected (Offline Synced)</div>
+              </div>
+            </div>
+            <div class="ios-list-right">
+              <button id="btn-sync-firebase-now" class="btn-primary" style="padding:6px 12px; font-size:0.75rem; width:auto;">Sync</button>
+            </div>
           </div>
         </div>
 
@@ -790,7 +904,46 @@
       </div>
     </div>
 
-    <!-- 7. DATA VAULT & CENTRAL AUDIT LEDGER MODAL -->
+    <!-- 7. BANK DETAILS MODAL -->
+    <div id="bank-modal" class="modal-overlay">
+      <div class="modal-content">
+        <div class="sheet-grabber"></div>
+        <div class="modal-header">
+          <h3>🏦 Settlement Bank Details</h3>
+          <button class="close-btn" id="btn-close-bank-modal">&times;</button>
+        </div>
+
+        <p style="font-size:0.8rem; color:var(--ios-text-secondary); margin-bottom:14px;">
+          Update your linked bank account and UPI details for real-world settlement and SMS notifications.
+        </p>
+
+        <div class="input-group">
+          <label class="input-label">Bank Name</label>
+          <input type="text" id="edit-bank-name" class="text-input" placeholder="e.g. State Bank of India">
+        </div>
+
+        <div class="input-group">
+          <label class="input-label">Account Number</label>
+          <input type="text" id="edit-bank-account" class="text-input" placeholder="e.g. 501004928190">
+        </div>
+
+        <div class="input-group">
+          <label class="input-label">IFSC Code</label>
+          <input type="text" id="edit-bank-ifsc" class="text-input" placeholder="e.g. SBIN0001234">
+        </div>
+
+        <div class="input-group">
+          <label class="input-label">UPI ID</label>
+          <input type="text" id="edit-bank-upi" class="text-input" placeholder="e.g. user@okhdfcbank">
+        </div>
+
+        <button id="btn-save-bank-details" class="btn-primary mt-2">
+          Save Bank Details
+        </button>
+      </div>
+    </div>
+
+    <!-- 8. DATA VAULT & CENTRAL AUDIT LEDGER MODAL -->
     <div id="modal-data-vault" class="modal-overlay">
       <div class="modal-content modal-wide">
         <div class="sheet-grabber"></div>

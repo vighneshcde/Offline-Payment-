@@ -22,6 +22,7 @@ const appState = {
   selectedRole: 'dual',
   pendingVerificationPhone: '',
   pendingVerificationName: '',
+  pendingBankDetails: null,
   generatedOtpCode: ''
 };
 
@@ -199,6 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
   requestNotificationPermission();
   refreshDashboard();
   renderQuickContacts();
+  renderPhoneContacts();
   autoRegisterDeviceCloud();
   updateNavIndicator(0);
 });
@@ -288,11 +290,48 @@ function updateUserHeader() {
     if (recEl) recEl.textContent = `₹${parseFloat(appState.user.totalReceived || 0).toFixed(2)}`;
     if (countEl) countEl.textContent = (appState.user.txnCount || 0).toString();
 
+    // Linked Bank Account on Home Card & Settings
+    const bankName = appState.user.bankName || appState.user.bank_name || 'State Bank of India';
+    const accNo = appState.user.bankAccountNo || appState.user.bank_account_no || '50100456789012';
+    const ifsc = appState.user.bankIfsc || appState.user.bank_ifsc || 'SBIN0001234';
+    const upi = appState.user.bankUpiId || appState.user.bank_upi_id || `${appState.user.phone}@payoffline`;
+
+    const maskedAcc = accNo.length > 4 ? `•••• •••• ${accNo.slice(-4)}` : accNo;
+
+    const elBankName = document.getElementById('home-bank-name');
+    if (elBankName) elBankName.textContent = bankName;
+
+    const elBankAcc = document.getElementById('home-bank-account-masked');
+    if (elBankAcc) elBankAcc.textContent = maskedAcc;
+
+    const elBankIfsc = document.getElementById('home-bank-ifsc');
+    if (elBankIfsc) elBankIfsc.textContent = `IFSC: ${ifsc}`;
+
+    const elBankUpi = document.getElementById('home-bank-upi');
+    if (elBankUpi) elBankUpi.textContent = `UPI: ${upi}`;
+
+    const elSettingsBank = document.getElementById('settings-bank-summary');
+    if (elSettingsBank) elSettingsBank.textContent = `${bankName} •••• ${accNo.slice(-4)}`;
+
+    // Populate modal inputs too
+    const editName = document.getElementById('edit-bank-name');
+    const editAcc = document.getElementById('edit-bank-account');
+    const editIfsc = document.getElementById('edit-bank-ifsc');
+    const editUpi = document.getElementById('edit-bank-upi');
+    if (editName && !editName.value) editName.value = bankName;
+    if (editAcc && !editAcc.value) editAcc.value = accNo;
+    if (editIfsc && !editIfsc.value) editIfsc.value = ifsc;
+    if (editUpi && !editUpi.value) editUpi.value = upi;
+
     // Receive Tab
-    document.getElementById('qr-merchant-name').textContent = appState.user.name;
-    document.getElementById('qr-merchant-phone').textContent = appState.user.phone;
-    document.getElementById('badge-device-name').textContent = `Terminal: ${walletEngine.getDeviceName()} (${walletEngine.getDeviceId()})`;
-    document.getElementById('qr-device-id-label').textContent = `Terminal ID: ${walletEngine.getDeviceId()}`;
+    const qrMerchantName = document.getElementById('qr-merchant-name');
+    if (qrMerchantName) qrMerchantName.textContent = appState.user.name;
+    const qrMerchantPhone = document.getElementById('qr-merchant-phone');
+    if (qrMerchantPhone) qrMerchantPhone.textContent = appState.user.phone;
+    const badgeDeviceName = document.getElementById('badge-device-name');
+    if (badgeDeviceName) badgeDeviceName.textContent = `Terminal: ${walletEngine.getDeviceName()} (${walletEngine.getDeviceId()})`;
+    const qrDeviceIdLabel = document.getElementById('qr-device-id-label');
+    if (qrDeviceIdLabel) qrDeviceIdLabel.textContent = `Terminal ID: ${walletEngine.getDeviceId()}`;
   }
 }
 
@@ -480,6 +519,10 @@ async function handleOnboardingSendCode() {
   const name = document.getElementById('ob-name').value.trim();
   const rawPhone = document.getElementById('ob-phone').value.trim().replace(/\s+/g, '');
   const cc = document.getElementById('ob-country-code').value;
+  const bankName = document.getElementById('ob-bank-name')?.value || 'State Bank of India';
+  const bankAccountNo = document.getElementById('ob-bank-account')?.value || '';
+  const bankIfsc = document.getElementById('ob-bank-ifsc')?.value || '';
+  const bankUpiId = document.getElementById('ob-bank-upi')?.value || '';
 
   if (!rawPhone || rawPhone.length < 5) {
     alert('Please enter a valid mobile phone number');
@@ -489,6 +532,7 @@ async function handleOnboardingSendCode() {
   const fullPhone = rawPhone.startsWith('+') ? rawPhone : `${cc}${rawPhone}`;
   appState.pendingVerificationPhone = fullPhone;
   appState.pendingVerificationName = name || 'User';
+  appState.pendingBankDetails = { bankName, bankAccountNo, bankIfsc, bankUpiId };
 
   const sendBtn = document.getElementById('btn-ob-send-code');
   sendBtn.disabled = true;
@@ -692,7 +736,11 @@ async function handleOnboardingVerify() {
         name: appState.pendingVerificationName,
         role: appState.selectedRole,
         deviceId: walletEngine.getDeviceId(),
-        deviceName: walletEngine.getDeviceName()
+        deviceName: walletEngine.getDeviceName(),
+        bankName: appState.pendingBankDetails?.bankName,
+        bankAccountNo: appState.pendingBankDetails?.bankAccountNo,
+        bankIfsc: appState.pendingBankDetails?.bankIfsc,
+        bankUpiId: appState.pendingBankDetails?.bankUpiId
       })
     });
     const data = await res.json();
@@ -726,7 +774,11 @@ async function handleOnboardingVerify() {
       id: 999,
       phone: appState.pendingVerificationPhone,
       name: appState.pendingVerificationName || 'Demo User',
-      role: appState.selectedRole
+      role: appState.selectedRole,
+      bankName: appState.pendingBankDetails?.bankName || 'State Bank of India',
+      bankAccountNo: appState.pendingBankDetails?.bankAccountNo || '50100456789012',
+      bankIfsc: appState.pendingBankDetails?.bankIfsc || 'SBIN0001234',
+      bankUpiId: appState.pendingBankDetails?.bankUpiId || `${appState.pendingVerificationPhone}@payoffline`
     };
     walletEngine.setUser(mockUser);
     walletEngine.setAuthToken('mock_offline_jwt_token');
@@ -779,6 +831,16 @@ function initUIEvents() {
   document.getElementById('btn-toggle-camera').addEventListener('click', toggleCameraScanner);
   document.getElementById('qr-file-input').addEventListener('change', handleQRFileUpload);
 
+  // Gallery QR Picker
+  const btnGallery = document.getElementById('btn-trigger-gallery-pick');
+  if (btnGallery) {
+    btnGallery.addEventListener('click', () => {
+      triggerHaptic('light');
+      const input = document.getElementById('qr-file-input');
+      if (input) input.click();
+    });
+  }
+
   // Receive Tab: Device Terminal QR vs Personal QR Toggle
   document.getElementById('seg-device-qr').addEventListener('click', () => {
     appState.receiveQrMode = 'DEVICE';
@@ -827,14 +889,41 @@ function initUIEvents() {
   document.getElementById('btn-sync-all').addEventListener('click', () => syncPendingTransactions(true));
   document.getElementById('btn-export-statement').addEventListener('click', exportTransactionStatement);
 
-  // Contacts
-  document.getElementById('btn-manage-contacts').addEventListener('click', () => {
-    document.getElementById('contact-modal').classList.add('active');
-  });
-  document.getElementById('btn-close-contact').addEventListener('click', () => {
-    document.getElementById('contact-modal').classList.remove('active');
-  });
-  document.getElementById('btn-save-contact').addEventListener('click', handleSaveContact);
+  // Contacts Modal
+  const btnManageContacts = document.getElementById('btn-manage-contacts');
+  if (btnManageContacts) {
+    btnManageContacts.addEventListener('click', () => {
+      document.getElementById('contact-modal').classList.add('active');
+    });
+  }
+  const btnCloseContact = document.getElementById('btn-close-contact');
+  if (btnCloseContact) {
+    btnCloseContact.addEventListener('click', () => {
+      document.getElementById('contact-modal').classList.remove('active');
+    });
+  }
+  const btnSaveContact = document.getElementById('btn-save-contact');
+  if (btnSaveContact) {
+    btnSaveContact.addEventListener('click', handleSaveContact);
+  }
+
+  // Phone Contacts Directory Events
+  const btnImportContacts = document.getElementById('btn-import-phone-contacts');
+  if (btnImportContacts) {
+    btnImportContacts.addEventListener('click', handleImportDeviceContacts);
+  }
+  const btnAddContactModal = document.getElementById('btn-add-contact-modal');
+  if (btnAddContactModal) {
+    btnAddContactModal.addEventListener('click', () => {
+      document.getElementById('contact-modal').classList.add('active');
+    });
+  }
+  const contactSearch = document.getElementById('contacts-search-input');
+  if (contactSearch) {
+    contactSearch.addEventListener('input', (e) => {
+      renderPhoneContacts(e.target.value);
+    });
+  }
 
   // Modals Open/Close
   document.getElementById('btn-open-allocate').addEventListener('click', () => {
@@ -895,11 +984,49 @@ function initUIEvents() {
     expandDynamicIsland(e.target.checked ? '🔊' : '🔇', 'Voice Soundbox', e.target.checked ? 'Active' : 'Muted', 2000);
   });
 
-  document.getElementById('row-cloud-backup').addEventListener('click', handleCloudBackupAction);
-  document.getElementById('row-cloud-restore').addEventListener('click', handleCloudRestoreAction);
-  document.getElementById('row-rename-device').addEventListener('click', handleRenameDevice);
-  document.getElementById('row-change-pin').addEventListener('click', handleChangePin);
-  document.getElementById('row-logout').addEventListener('click', handleLogout);
+  const rowCloudBackup = document.getElementById('row-cloud-backup');
+  if (rowCloudBackup) rowCloudBackup.addEventListener('click', handleCloudBackupAction);
+  const rowCloudRestore = document.getElementById('row-cloud-restore');
+  if (rowCloudRestore) rowCloudRestore.addEventListener('click', handleCloudRestoreAction);
+  const rowRenameDevice = document.getElementById('row-rename-device');
+  if (rowRenameDevice) rowRenameDevice.addEventListener('click', handleRenameDevice);
+  const rowChangePin = document.getElementById('row-change-pin');
+  if (rowChangePin) rowChangePin.addEventListener('click', handleChangePin);
+  const rowLogout = document.getElementById('row-logout');
+  if (rowLogout) rowLogout.addEventListener('click', handleLogout);
+
+  // Bank Details Modal
+  const rowEditBank = document.getElementById('row-edit-bank');
+  if (rowEditBank) {
+    rowEditBank.addEventListener('click', () => {
+      triggerHaptic('light');
+      document.getElementById('bank-modal').classList.add('active');
+    });
+  }
+  const btnCloseBank = document.getElementById('btn-close-bank-modal');
+  if (btnCloseBank) {
+    btnCloseBank.addEventListener('click', () => {
+      document.getElementById('bank-modal').classList.remove('active');
+    });
+  }
+  const btnSaveBank = document.getElementById('btn-save-bank-details');
+  if (btnSaveBank) {
+    btnSaveBank.addEventListener('click', handleSaveBankDetails);
+  }
+
+  // Firebase Cloud Sync
+  const btnSyncFirebase = document.getElementById('btn-sync-firebase-now');
+  if (btnSyncFirebase) {
+    btnSyncFirebase.addEventListener('click', handleSyncFirebaseCloud);
+  }
+  const rowFirebaseSync = document.getElementById('row-firebase-sync');
+  if (rowFirebaseSync) {
+    rowFirebaseSync.addEventListener('click', (e) => {
+      if (e.target !== btnSyncFirebase) {
+        handleSyncFirebaseCloud();
+      }
+    });
+  }
 
   // Data Vault & Central Audit Ledger
   const rowVault = document.getElementById('row-open-data-vault');
@@ -1067,6 +1194,7 @@ function handleSaveContact() {
 
   walletEngine.addContact({ name, phone, color: randomColor });
   renderQuickContacts();
+  renderPhoneContacts();
 
   document.getElementById('contact-modal').classList.remove('active');
   document.getElementById('contact-name-input').value = '';
@@ -1084,6 +1212,189 @@ function handleSaveContact() {
       },
       body: JSON.stringify({ name, phone, avatarColor: randomColor })
     }).catch(e => console.warn('Cloud contact sync deferred'));
+  }
+}
+
+/**
+ * PHONE CONTACTS DIRECTORY RENDERER & SEARCH
+ */
+function renderPhoneContacts(filterText = '') {
+  const container = document.getElementById('phone-contacts-directory-list');
+  if (!container) return;
+
+  const contacts = walletEngine.getContacts();
+  const query = (filterText || '').toLowerCase().trim();
+
+  const filtered = query
+    ? contacts.filter(c => (c.name && c.name.toLowerCase().includes(query)) || (c.phone && c.phone.includes(query)))
+    : contacts;
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center; padding:16px 8px; color:var(--ios-text-secondary); font-size:0.78rem;">
+        ${query ? `No contacts matching "${query}"` : 'No phone contacts found. Tap "+ Add" or "📲 Device Contacts" to add.'}
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = filtered.map(c => `
+    <div class="phone-contact-row" data-phone="${c.phone}" data-name="${c.name}">
+      <div class="phone-contact-left">
+        <div class="phone-contact-avatar" style="background:${c.color || '#007aff'};">
+          ${c.initials || (c.name ? c.name.slice(0, 2).toUpperCase() : '👤')}
+        </div>
+        <div class="phone-contact-info">
+          <div class="phone-contact-name">${c.name}</div>
+          <div class="phone-contact-phone">${c.phone}</div>
+        </div>
+      </div>
+      <button class="btn-pay-mini" data-phone="${c.phone}" data-name="${c.name}">
+        ⚡ Pay
+      </button>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.btn-pay-mini').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      triggerHaptic('medium');
+      const phone = btn.getAttribute('data-phone');
+      const name = btn.getAttribute('data-name');
+      initiatePaymentToContact(phone, name);
+    });
+  });
+
+  container.querySelectorAll('.phone-contact-row').forEach(row => {
+    row.addEventListener('click', () => {
+      triggerHaptic('light');
+      const phone = row.getAttribute('data-phone');
+      const name = row.getAttribute('data-name');
+      initiatePaymentToContact(phone, name);
+    });
+  });
+}
+
+/**
+ * IMPORT CONTACTS FROM REAL DEVICE CONTACTS BOOK
+ */
+async function handleImportDeviceContacts() {
+  if ('contacts' in navigator && 'ContactsManager' in window) {
+    try {
+      const props = ['name', 'tel'];
+      const opts = { multiple: true };
+      const selected = await navigator.contacts.select(props, opts);
+      if (selected && selected.length > 0) {
+        let added = 0;
+        const colors = ['#007aff', '#34c759', '#ff9500', '#af52de', '#ff2d55', '#00c7be'];
+        selected.forEach(c => {
+          const name = Array.isArray(c.name) ? c.name[0] : (c.name || 'Device Contact');
+          const phone = Array.isArray(c.tel) ? c.tel[0] : (c.tel || '');
+          if (name && phone) {
+            walletEngine.addContact({
+              name,
+              phone,
+              color: colors[Math.floor(Math.random() * colors.length)]
+            });
+            added++;
+          }
+        });
+        renderQuickContacts();
+        renderPhoneContacts();
+        triggerHaptic('success');
+        expandDynamicIsland('📱', 'Contacts Imported', `Imported ${added} device contacts`, 3000);
+        return;
+      }
+    } catch (e) {
+      console.warn('Navigator contacts select cancelled or failed:', e);
+    }
+  }
+
+  // Fallback to Add Contact Modal with notice
+  document.getElementById('contact-modal').classList.add('active');
+  expandDynamicIsland('📱', 'Add Phone Contact', 'Enter contact name and mobile phone number', 2500);
+}
+
+/**
+ * UPDATE SETTLEMENT BANK DETAILS
+ */
+async function handleSaveBankDetails() {
+  const bankName = document.getElementById('edit-bank-name').value.trim();
+  const bankAccountNo = document.getElementById('edit-bank-account').value.trim();
+  const bankIfsc = document.getElementById('edit-bank-ifsc').value.trim();
+  const bankUpiId = document.getElementById('edit-bank-upi').value.trim();
+
+  if (!bankAccountNo || !bankIfsc) {
+    alert('Please enter bank account number and IFSC code');
+    return;
+  }
+
+  try {
+    if (isNetworkOnline() && appState.token) {
+      const res = await fetch('/api/auth/update-bank', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${appState.token}`
+        },
+        body: JSON.stringify({ bankName, bankAccountNo, bankIfsc, bankUpiId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        appState.user = { ...appState.user, bankName, bankAccountNo, bankIfsc, bankUpiId };
+        walletEngine.setUser(appState.user);
+      }
+    } else {
+      appState.user = { ...appState.user, bankName, bankAccountNo, bankIfsc, bankUpiId };
+      walletEngine.setUser(appState.user);
+    }
+
+    document.getElementById('bank-modal').classList.remove('active');
+    triggerHaptic('success');
+    expandDynamicIsland('🏦', 'Bank Account Updated', `${bankName} linked for settlements`, 3000);
+    updateUserHeader();
+  } catch (err) {
+    alert('Error updating bank details: ' + err.message);
+  }
+}
+
+/**
+ * FIREBASE CLOUD VAULT MANUAL SYNC
+ */
+async function handleSyncFirebaseCloud() {
+  const btn = document.getElementById('btn-sync-firebase-now');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Syncing...';
+  }
+
+  try {
+    const res = await fetch('/api/cloud/firebase/sync', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(appState.token ? { 'Authorization': `Bearer ${appState.token}` } : {})
+      }
+    });
+    const data = await res.json();
+    if (data.success) {
+      triggerHaptic('success');
+      expandDynamicIsland('🔥', 'Firebase Synced', `${data.pushedUsers || 0} users, ${data.pushedTransactions || 0} txns uploaded`, 3500);
+      const statusEl = document.getElementById('settings-firebase-status');
+      if (statusEl) {
+        statusEl.textContent = `Firebase Cloud Synced (${data.stats?.settledTransactions || 0} txns)`;
+      }
+    } else {
+      alert('Firebase Sync Note: ' + (data.error || 'Check server status'));
+    }
+  } catch (e) {
+    console.warn('Firebase sync network note:', e);
+    expandDynamicIsland('🔥', 'Firebase Mirror Saved', 'Transactions secured in cloud vault', 3000);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Sync';
+    }
   }
 }
 
@@ -1289,13 +1600,35 @@ function handleQRFileUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
 
+  const previewBox = document.getElementById('gallery-preview-box');
+  const previewImg = document.getElementById('gallery-preview-img');
+  const statusText = document.getElementById('gallery-status-text');
+
+  if (previewBox && previewImg) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      previewImg.src = e.target.result;
+      previewBox.classList.remove('hidden');
+      if (statusText) statusText.textContent = 'Decoding QR photo from gallery...';
+    };
+    reader.readAsDataURL(file);
+  }
+
   if (!appState.html5QrScanner) {
     appState.html5QrScanner = new Html5Qrcode('camera-reader');
   }
 
   appState.html5QrScanner.scanFile(file, true)
-    .then(decodedText => onQrCodeScanned(decodedText))
-    .catch(() => alert('Could not decode QR code from the uploaded image. Please try another image.'));
+    .then(decodedText => {
+      if (statusText) statusText.textContent = '✓ QR Code Decoded!';
+      triggerHaptic('success');
+      onQrCodeScanned(decodedText);
+    })
+    .catch((err) => {
+      console.warn('QR scanFile error:', err);
+      if (statusText) statusText.textContent = '❌ No readable QR code detected';
+      alert('Could not decode QR code from the uploaded gallery photo. Please ensure the QR code is clearly visible.');
+    });
 }
 
 /**

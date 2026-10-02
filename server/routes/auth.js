@@ -76,7 +76,7 @@ router.post('/send-otp', async (req, res) => {
  */
 router.post('/verify-otp', async (req, res) => {
   try {
-    let { phone, otpCode, name, role } = req.body;
+    let { phone, otpCode, name, role, bankName, bankAccountNo, bankIfsc, bankUpiId } = req.body;
     if (!phone || !otpCode) {
       return res.status(400).json({ success: false, error: 'Phone and OTP code are required' });
     }
@@ -107,12 +107,13 @@ router.post('/verify-otp', async (req, res) => {
     let user = await db.get('SELECT * FROM users WHERE phone = ?', [phone]);
 
     if (!user) {
-      // Create new user
+      // Create new user with full profile and bank details
       const userName = (name && name.trim()) || `User-${phone.slice(-4)}`;
       const userRole = role || 'dual';
       const insertResult = await db.run(
-        `INSERT INTO users (phone, name, role, status) VALUES (?, ?, ?, 'active')`,
-        [phone, userName, userRole]
+        `INSERT INTO users (phone, name, role, status, bank_name, bank_account_no, bank_ifsc, bank_upi_id) 
+         VALUES (?, ?, ?, 'active', ?, ?, ?, ?)`,
+        [phone, userName, userRole, bankName || 'State Bank of India', bankAccountNo || null, bankIfsc || null, bankUpiId || null]
       );
       user = await db.get('SELECT * FROM users WHERE id = ?', [insertResult.lastID]);
 
@@ -121,10 +122,23 @@ router.post('/verify-otp', async (req, res) => {
         `INSERT INTO wallets (user_id, online_balance, offline_allocated_balance) VALUES (?, 5000.00, 2000.00)`,
         [user.id]
       );
-    } else if (name && name.trim() && user.name.startsWith('User-')) {
-      // Update name if provided
-      await db.run('UPDATE users SET name = ? WHERE id = ?', [name.trim(), user.id]);
-      user.name = name.trim();
+    } else {
+      // Update name and bank details if provided
+      const updates = [];
+      const params = [];
+      if (name && name.trim() && user.name.startsWith('User-')) {
+        updates.push('name = ?');
+        params.push(name.trim());
+      }
+      if (bankName) { updates.push('bank_name = ?'); params.push(bankName.trim()); }
+      if (bankAccountNo) { updates.push('bank_account_no = ?'); params.push(bankAccountNo.trim()); }
+      if (bankIfsc) { updates.push('bank_ifsc = ?'); params.push(bankIfsc.trim().toUpperCase()); }
+      if (bankUpiId) { updates.push('bank_upi_id = ?'); params.push(bankUpiId.trim()); }
+
+      if (updates.length > 0) {
+        params.push(user.id);
+        await db.run(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
+      }
     }
 
     // Fetch user wallet
@@ -188,9 +202,17 @@ router.post('/verify-otp', async (req, res) => {
     // Fetch refreshed user record
     const updatedUser = await db.get('SELECT * FROM users WHERE id = ?', [user.id]);
 
+    // Sync user profile to Firebase Cloud
+    try {
+      const FirebaseVault = require('../services/firebase');
+      await FirebaseVault.syncUserToFirebase(updatedUser);
+    } catch (fbErr) {
+      console.warn('Firebase user sync non-blocking warning:', fbErr.message);
+    }
+
     res.json({
       success: true,
-      message: 'Mobile number verified successfully!',
+      message: 'Mobile number & profile verified successfully!',
       token,
       user: {
         id: updatedUser.id,
@@ -202,7 +224,11 @@ router.post('/verify-otp', async (req, res) => {
         totalSpent: updatedUser.total_spent || 0,
         totalReceived: updatedUser.total_received || 0,
         txnCount: updatedUser.txn_count || 0,
-        lastLoginAt: updatedUser.last_login_at
+        lastLoginAt: updatedUser.last_login_at,
+        bankName: updatedUser.bank_name || 'State Bank of India',
+        bankAccountNo: updatedUser.bank_account_no || '',
+        bankIfsc: updatedUser.bank_ifsc || '',
+        bankUpiId: updatedUser.bank_upi_id || `${updatedUser.phone}@payoffline`
       },
       wallet: {
         onlineBalance: wallet.online_balance,
@@ -241,12 +267,56 @@ router.get('/me', authenticateToken, async (req, res) => {
         txnCount: user.txn_count || 0,
         lastLoginAt: user.last_login_at,
         deviceCount: deviceCount ? deviceCount.count : 0,
-        loginCount: loginCount ? loginCount.count : 0
+        loginCount: loginCount ? loginCount.count : 0,
+        bankName: user.bank_name || 'State Bank of India',
+        bankAccountNo: user.bank_account_no || '',
+        bankIfsc: user.bank_ifsc || '',
+        bankUpiId: user.bank_upi_id || `${user.phone}@payoffline`
       },
       wallet: {
         onlineBalance: wallet ? wallet.online_balance : 0,
         offlineAllocatedBalance: wallet ? wallet.offline_allocated_balance : 0,
         lastSyncCounter: wallet ? wallet.last_sync_counter : 0
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * 4. UPDATE BANK DETAILS & PROFILE
+ * POST /api/auth/update-bank
+ */
+router.post('/update-bank', authenticateToken, async (req, res) => {
+  try {
+    const { bankName, bankAccountNo, bankIfsc, bankUpiId } = req.body;
+    await db.run(
+      `UPDATE users SET 
+         bank_name = COALESCE(?, bank_name),
+         bank_account_no = COALESCE(?, bank_account_no),
+         bank_ifsc = COALESCE(?, bank_ifsc),
+         bank_upi_id = COALESCE(?, bank_upi_id),
+         updated_at = datetime('now')
+       WHERE id = ?`,
+      [bankName || null, bankAccountNo || null, bankIfsc || null, bankUpiId || null, req.user.id]
+    );
+
+    const updatedUser = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
+
+    try {
+      const FirebaseVault = require('../services/firebase');
+      await FirebaseVault.syncUserToFirebase(updatedUser);
+    } catch (e) {}
+
+    res.json({
+      success: true,
+      message: 'Bank account and profile updated successfully',
+      bankDetails: {
+        bankName: updatedUser.bank_name,
+        bankAccountNo: updatedUser.bank_account_no,
+        bankIfsc: updatedUser.bank_ifsc,
+        bankUpiId: updatedUser.bank_upi_id
       }
     });
   } catch (err) {

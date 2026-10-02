@@ -3,6 +3,8 @@ const router = express.Router();
 const db = require('../db');
 const { authenticateToken } = require('./auth');
 const CryptoEngine = require('../services/crypto');
+const NotificationService = require('../services/sms');
+const FirebaseVault = require('../services/firebase');
 
 /**
  * 1. SYNC OFFLINE TRANSACTIONS
@@ -210,6 +212,48 @@ router.post('/sync', authenticateToken, async (req, res) => {
         `INSERT INTO audit_logs (action, phone, details) VALUES (?, ?, ?)`,
         ['TRANSACTION_RECONCILED', payer_phone, `Settled ₹${txnAmount.toFixed(2)} to ${payee_phone} [ID: ${id}]`]
       );
+
+      // 11. Send Real SMS Notification to BOTH Payer and Payee!
+      try {
+        await NotificationService.sendTransactionSettlementSMS({
+          payerPhone: payer_phone,
+          payerName: payer_name || payerUser.name || 'Customer',
+          payeePhone: payee_phone,
+          payeeName: payee_name || payee.name || 'Merchant',
+          amount: txnAmount,
+          txnId: id
+        });
+      } catch (smsErr) {
+        console.warn('⚠️ Non-blocking SMS error:', smsErr.message);
+      }
+
+      // 12. Store Transaction & User Profiles to Firebase Cloud!
+      try {
+        await FirebaseVault.syncTransactionToFirebase({
+          id,
+          payer_phone,
+          payer_name: payer_name || payerUser.name || 'Customer',
+          payer_device_id: payerDeviceId,
+          payee_phone,
+          payee_name: payee_name || payee.name || 'Merchant',
+          payee_device_id: payeeDeviceId,
+          amount: txnAmount,
+          mode: mode || 'OFFLINE_QR_SCAN',
+          counter: counter || 0,
+          nonce: nonce || '',
+          signature: signature || '',
+          status: 'COMPLETED',
+          offline_timestamp: offline_timestamp || new Date().toISOString()
+        });
+
+        // Sync refreshed user profiles to Firebase
+        const updatedPayer = await db.get('SELECT * FROM users WHERE id = ?', [payerUser.id]);
+        const updatedPayee = await db.get('SELECT * FROM users WHERE id = ?', [payee.id]);
+        if (updatedPayer) await FirebaseVault.syncUserToFirebase(updatedPayer);
+        if (updatedPayee) await FirebaseVault.syncUserToFirebase(updatedPayee);
+      } catch (fbErr) {
+        console.warn('⚠️ Non-blocking Firebase sync error:', fbErr.message);
+      }
 
       results.push({
         id,

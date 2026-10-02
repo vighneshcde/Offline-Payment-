@@ -208,4 +208,58 @@ router.get('/restore', authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * 7. FIREBASE CLOUD STATUS & METRICS
+ * GET /api/cloud/firebase/status
+ */
+router.get('/firebase/status', async (req, res) => {
+  try {
+    const FirebaseVault = require('../services/firebase');
+    const status = FirebaseVault.getStatus();
+    res.json(status);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * 8. FORCE FULL FIREBASE CLOUD SYNC
+ * POST /api/cloud/firebase/sync
+ */
+router.post('/firebase/sync', authenticateToken, async (req, res) => {
+  try {
+    const FirebaseVault = require('../services/firebase');
+    
+    // 1. Sync current user
+    const user = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
+    if (user) await FirebaseVault.syncUserToFirebase(user);
+
+    // 2. Sync all user transactions
+    const txns = await db.all(
+      'SELECT * FROM transactions WHERE payer_phone = ? OR payee_phone = ?',
+      [req.user.phone, req.user.phone]
+    );
+
+    for (const t of txns) {
+      await FirebaseVault.syncTransactionToFirebase(t);
+    }
+
+    // 3. Sync user ledgers
+    const ledgers = await db.all('SELECT * FROM wallet_ledger_entries WHERE user_id = ?', [req.user.id]);
+    for (const l of ledgers) {
+      await FirebaseVault.syncLedgerEntryToFirebase(l);
+    }
+
+    res.json({
+      success: true,
+      message: 'Full account data and offline transactions synced to Firebase Cloud!',
+      syncedTransactions: txns.length,
+      syncedLedgerEntries: ledgers.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;
