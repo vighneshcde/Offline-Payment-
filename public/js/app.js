@@ -16,7 +16,13 @@ const appState = {
   receiveQrMode: 'DEVICE', // 'DEVICE' or 'USER'
   currentFilter: 'ALL',
   searchQuery: '',
-  islandTimeout: null
+  islandTimeout: null,
+  currentTabIndex: 0,
+  selectedCountryCode: '+91',
+  selectedRole: 'dual',
+  pendingVerificationPhone: '',
+  pendingVerificationName: '',
+  generatedOtpCode: ''
 };
 
 // Apple Taptic Engine Simulation
@@ -187,11 +193,14 @@ document.addEventListener('DOMContentLoaded', () => {
   initAuthSession();
   initNetworkListeners();
   initUIEvents();
+  initOnboardingEvents();
   initWebSocket();
+  initOtpBoxes();
   requestNotificationPermission();
   refreshDashboard();
   renderQuickContacts();
   autoRegisterDeviceCloud();
+  updateNavIndicator(0);
 });
 
 /**
@@ -224,20 +233,16 @@ function toggleTheme(isDark) {
 }
 
 /**
- * 3. Notification Permissions
+ * 3. Notification Permissions Request
  */
 function requestNotificationPermission() {
   if ('Notification' in window && Notification.permission === 'default') {
-    document.body.addEventListener('click', () => {
-      if (Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
-    }, { once: true });
+    Notification.requestPermission();
   }
 }
 
 /**
- * 4. Auth Session Handling
+ * 4. Auth Session & Onboarding Handling
  */
 function initAuthSession() {
   const user = walletEngine.getUser();
@@ -246,10 +251,19 @@ function initAuthSession() {
   if (user && token) {
     appState.user = user;
     appState.token = token;
+    document.getElementById('onboarding-screen').classList.add('hidden');
     updateUserHeader();
   } else {
-    openAuthModal();
+    // Show Fullscreen Onboarding Screen
+    showOnboardingScreen();
   }
+}
+
+function showOnboardingScreen() {
+  const ob = document.getElementById('onboarding-screen');
+  ob.classList.remove('hidden');
+  document.getElementById('onboarding-step-create').classList.remove('hidden');
+  document.getElementById('onboarding-step-verify').classList.add('hidden');
 }
 
 function updateUserHeader() {
@@ -393,16 +407,342 @@ async function autoRegisterDeviceCloud() {
 }
 
 /**
- * 8. UI Navigation & Tab Switching
+ * 8. ONBOARDING & 6-DIGIT REAL DEVICE NOTIFICATION VERIFICATION
+ */
+function initOnboardingEvents() {
+  // Role selector buttons
+  const rolePersonal = document.getElementById('ob-role-personal');
+  const roleMerchant = document.getElementById('ob-role-merchant');
+
+  if (rolePersonal && roleMerchant) {
+    rolePersonal.addEventListener('click', () => {
+      rolePersonal.classList.add('active');
+      roleMerchant.classList.remove('active');
+      appState.selectedRole = 'personal';
+      triggerHaptic('light');
+    });
+
+    roleMerchant.addEventListener('click', () => {
+      roleMerchant.classList.add('active');
+      rolePersonal.classList.remove('active');
+      appState.selectedRole = 'merchant';
+      triggerHaptic('light');
+    });
+  }
+
+  // Country code selector
+  const ccSelect = document.getElementById('ob-country-code');
+  if (ccSelect) {
+    ccSelect.addEventListener('change', (e) => {
+      appState.selectedCountryCode = e.target.value;
+    });
+  }
+
+  // Create Account & Send Code Button
+  const btnSendCode = document.getElementById('btn-ob-send-code');
+  if (btnSendCode) {
+    btnSendCode.addEventListener('click', handleOnboardingSendCode);
+  }
+
+  // Verify Button
+  const btnVerify = document.getElementById('btn-ob-verify');
+  if (btnVerify) {
+    btnVerify.addEventListener('click', handleOnboardingVerify);
+  }
+
+  // Quick-Fill Button
+  const btnQuickFill = document.getElementById('btn-ob-quick-fill');
+  if (btnQuickFill) {
+    btnQuickFill.addEventListener('click', () => {
+      if (appState.generatedOtpCode) {
+        fillOtpBoxes(appState.generatedOtpCode);
+        triggerHaptic('success');
+      }
+    });
+  }
+
+  // Resend Button
+  const btnResend = document.getElementById('btn-ob-resend');
+  if (btnResend) {
+    btnResend.addEventListener('click', handleOnboardingSendCode);
+  }
+}
+
+async function handleOnboardingSendCode() {
+  const name = document.getElementById('ob-name').value.trim();
+  const rawPhone = document.getElementById('ob-phone').value.trim().replace(/\s+/g, '');
+  const cc = document.getElementById('ob-country-code').value;
+
+  if (!rawPhone || rawPhone.length < 5) {
+    alert('Please enter a valid mobile phone number');
+    return;
+  }
+
+  const fullPhone = rawPhone.startsWith('+') ? rawPhone : `${cc}${rawPhone}`;
+  appState.pendingVerificationPhone = fullPhone;
+  appState.pendingVerificationName = name || 'User';
+
+  const sendBtn = document.getElementById('btn-ob-send-code');
+  sendBtn.disabled = true;
+  sendBtn.textContent = 'Dispatching Code to Device...';
+
+  // Explicitly prompt device for native notification permission
+  if ('Notification' in window && Notification.permission !== 'granted') {
+    try {
+      await Notification.requestPermission();
+    } catch (e) {
+      console.warn('Notification permission error:', e);
+    }
+  }
+
+  try {
+    const res = await fetch('/api/auth/send-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: fullPhone, name: appState.pendingVerificationName, role: appState.selectedRole })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      appState.generatedOtpCode = data.verificationCode;
+
+      // 1. Send REAL Native OS Notification to current device
+      dispatchRealDeviceNotification('🔐 PayOffline Verification Code', `Your verification code is: ${data.verificationCode}. Valid for 5 minutes.`);
+
+      // 2. Play audio notification chime & Taptic Engine
+      soundbox.playNotificationSound();
+      triggerHaptic('medium');
+
+      // 3. Expand Apple Dynamic Island with verification code
+      expandDynamicIsland('🔑', `Verification Code: ${data.verificationCode}`, `Dispatched to ${fullPhone}`, 8000);
+
+      // 4. Transition to Step 2
+      document.getElementById('onboarding-step-create').classList.add('hidden');
+      document.getElementById('onboarding-step-verify').classList.remove('hidden');
+      document.getElementById('ob-display-phone').textContent = fullPhone;
+
+      // Clear boxes and focus first
+      clearOtpBoxes();
+      focusFirstOtpBox();
+      startOnboardingTimer();
+    } else {
+      alert('Error: ' + data.error);
+    }
+  } catch (err) {
+    // Local / Offline fallback code
+    const fallbackCode = '849201';
+    appState.generatedOtpCode = fallbackCode;
+
+    dispatchRealDeviceNotification('🔐 PayOffline Verification Code', `Your verification code is: ${fallbackCode}`);
+    soundbox.playNotificationSound();
+    triggerHaptic('medium');
+
+    expandDynamicIsland('🔑', `Verification Code: ${fallbackCode}`, `Dispatched to ${fullPhone}`, 8000);
+
+    document.getElementById('onboarding-step-create').classList.add('hidden');
+    document.getElementById('onboarding-step-verify').classList.remove('hidden');
+    document.getElementById('ob-display-phone').textContent = fullPhone;
+
+    clearOtpBoxes();
+    focusFirstOtpBox();
+    startOnboardingTimer();
+  } finally {
+    sendBtn.disabled = false;
+    sendBtn.textContent = '📲 Create Account & Send Code';
+  }
+}
+
+function dispatchRealDeviceNotification(title, body) {
+  if ('Notification' in window) {
+    if (Notification.permission === 'granted') {
+      try {
+        const notif = new Notification(title, {
+          body: body,
+          icon: '/icons/icon.svg',
+          badge: '/icons/icon.svg',
+          vibrate: [200, 100, 200],
+          tag: 'payoffline-verification'
+        });
+        notif.onclick = () => window.focus();
+      } catch (e) {
+        console.warn('Native notification call error:', e);
+      }
+    }
+  }
+}
+
+function startOnboardingTimer() {
+  if (appState.otpCountdownInterval) clearInterval(appState.otpCountdownInterval);
+  let seconds = 300;
+  const timerEl = document.getElementById('ob-timer');
+
+  appState.otpCountdownInterval = setInterval(() => {
+    seconds--;
+    if (seconds <= 0) {
+      clearInterval(appState.otpCountdownInterval);
+      if (timerEl) timerEl.textContent = 'Code expired';
+    } else {
+      const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+      const secs = (seconds % 60).toString().padStart(2, '0');
+      if (timerEl) timerEl.textContent = `Expires in ${mins}:${secs}`;
+    }
+  }, 1000);
+}
+
+/**
+ * 6-Digit Individual OTP Input Boxes Controller
+ */
+function initOtpBoxes() {
+  const boxes = document.querySelectorAll('.otp-box');
+  boxes.forEach((box, index) => {
+    // Handle typing
+    box.addEventListener('input', (e) => {
+      const val = e.target.value;
+      if (val.length >= 1) {
+        box.classList.add('filled');
+        // Auto-advance to next box
+        if (index < boxes.length - 1) {
+          boxes[index + 1].focus();
+        }
+      } else {
+        box.classList.remove('filled');
+      }
+    });
+
+    // Handle backspace navigation
+    box.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && !box.value && index > 0) {
+        boxes[index - 1].focus();
+        boxes[index - 1].value = '';
+        boxes[index - 1].classList.remove('filled');
+      }
+    });
+
+    // Handle paste event (auto-distribute 6 digits!)
+    box.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const pasteData = (e.clipboardData || window.clipboardData).getData('text').trim();
+      if (/^\d{6}$/.test(pasteData)) {
+        fillOtpBoxes(pasteData);
+      }
+    });
+  });
+}
+
+function fillOtpBoxes(codeString) {
+  const boxes = document.querySelectorAll('.otp-box');
+  const digits = codeString.split('');
+  boxes.forEach((box, i) => {
+    if (digits[i]) {
+      box.value = digits[i];
+      box.classList.add('filled');
+    }
+  });
+  if (boxes[boxes.length - 1]) {
+    boxes[boxes.length - 1].focus();
+  }
+}
+
+function clearOtpBoxes() {
+  const boxes = document.querySelectorAll('.otp-box');
+  boxes.forEach(box => {
+    box.value = '';
+    box.classList.remove('filled');
+  });
+}
+
+function focusFirstOtpBox() {
+  const first = document.querySelector('.otp-box[data-index="0"]');
+  if (first) setTimeout(() => first.focus(), 150);
+}
+
+function getEnteredOtp() {
+  const boxes = document.querySelectorAll('.otp-box');
+  let code = '';
+  boxes.forEach(box => code += box.value.trim());
+  return code;
+}
+
+async function handleOnboardingVerify() {
+  const otpCode = getEnteredOtp();
+  if (!otpCode || otpCode.length < 6) {
+    alert('Please enter the full 6-digit verification code');
+    return;
+  }
+
+  const verifyBtn = document.getElementById('btn-ob-verify');
+  verifyBtn.disabled = true;
+  verifyBtn.textContent = 'Verifying...';
+
+  try {
+    const res = await fetch('/api/auth/verify-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone: appState.pendingVerificationPhone,
+        otpCode,
+        name: appState.pendingVerificationName,
+        role: appState.selectedRole
+      })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      walletEngine.setUser(data.user);
+      walletEngine.setAuthToken(data.token);
+      if (data.wallet && data.wallet.offlineAllocatedBalance) {
+        walletEngine.setOfflineBalance(data.wallet.offlineAllocatedBalance);
+      }
+
+      appState.user = data.user;
+      appState.token = data.token;
+
+      // Close onboarding screen with smooth spring animation
+      document.getElementById('onboarding-screen').classList.add('hidden');
+      soundbox.playPaymentSuccessChime();
+      triggerHaptic('success');
+
+      expandDynamicIsland('🟢', `Welcome, ${data.user.name}!`, 'Offline Wallet Initialized', 4000);
+
+      updateUserHeader();
+      refreshDashboard();
+      autoRegisterDeviceCloud();
+    } else {
+      alert('Verification Failed: ' + data.error);
+    }
+  } catch (err) {
+    // Offline demo fallback login
+    const mockUser = {
+      id: 999,
+      phone: appState.pendingVerificationPhone,
+      name: appState.pendingVerificationName || 'Demo User',
+      role: appState.selectedRole
+    };
+    walletEngine.setUser(mockUser);
+    walletEngine.setAuthToken('mock_offline_jwt_token');
+    appState.user = mockUser;
+    appState.token = 'mock_offline_jwt_token';
+
+    document.getElementById('onboarding-screen').classList.add('hidden');
+    expandDynamicIsland('🟢', `Welcome, ${mockUser.name}!`, 'Offline Mode Enabled', 3500);
+    updateUserHeader();
+    refreshDashboard();
+  } finally {
+    verifyBtn.disabled = false;
+    verifyBtn.textContent = '✅ Verify & Unlock Wallet';
+  }
+}
+
+/**
+ * 9. UI NAVIGATION & DIRECTION-AWARE FLUID TAB TRANSITIONS
  */
 function initUIEvents() {
-  // Bottom Tab Navigation
   const navItems = document.querySelectorAll('.nav-item');
-  navItems.forEach(item => {
+  navItems.forEach((item, index) => {
     item.addEventListener('click', () => {
       triggerHaptic('light');
       const tabId = item.getAttribute('data-tab');
-      switchTab(tabId);
+      switchTab(tabId, index);
     });
   });
 
@@ -416,14 +756,14 @@ function initUIEvents() {
   });
 
   // Header Avatar -> Settings Tab
-  document.getElementById('header-avatar').addEventListener('click', () => switchTab('tab-settings'));
+  document.getElementById('header-avatar').addEventListener('click', () => switchTab('tab-settings', 4));
 
   // Quick Action Buttons
-  document.getElementById('act-scan').addEventListener('click', () => switchTab('tab-scan'));
-  document.getElementById('act-receive').addEventListener('click', () => switchTab('tab-receive'));
-  document.getElementById('act-voucher').addEventListener('click', () => switchTab('tab-voucher'));
+  document.getElementById('act-scan').addEventListener('click', () => switchTab('tab-scan', 1));
+  document.getElementById('act-receive').addEventListener('click', () => switchTab('tab-receive', 2));
+  document.getElementById('act-voucher').addEventListener('click', () => switchTab('tab-voucher', 3));
   document.getElementById('act-cloud').addEventListener('click', () => handleCloudBackupAction());
-  document.getElementById('link-view-all').addEventListener('click', () => switchTab('tab-history'));
+  document.getElementById('link-view-all').addEventListener('click', () => switchTab('tab-history', 4));
 
   // Camera Toggle
   document.getElementById('btn-toggle-camera').addEventListener('click', toggleCameraScanner);
@@ -445,7 +785,7 @@ function initUIEvents() {
     renderReceiveQR();
   });
   document.getElementById('btn-update-receive-qr').addEventListener('click', renderReceiveQR);
-  document.getElementById('btn-scan-voucher-counter').addEventListener('click', () => switchTab('tab-scan'));
+  document.getElementById('btn-scan-voucher-counter').addEventListener('click', () => switchTab('tab-scan', 1));
 
   // Voucher Tab
   document.getElementById('btn-generate-voucher').addEventListener('click', () => {
@@ -550,23 +890,52 @@ function initUIEvents() {
   document.getElementById('row-rename-device').addEventListener('click', handleRenameDevice);
   document.getElementById('row-change-pin').addEventListener('click', handleChangePin);
   document.getElementById('row-logout').addEventListener('click', handleLogout);
-
-  // Auth Modal Buttons
-  document.getElementById('btn-send-otp').addEventListener('click', handleSendOtp);
-  document.getElementById('btn-verify-otp').addEventListener('click', handleVerifyOtp);
-  document.getElementById('btn-resend-otp').addEventListener('click', handleSendOtp);
 }
 
-function switchTab(tabId) {
-  document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
+/**
+ * DIRECTION-AWARE FLUID PAGE SWITCHER
+ */
+function switchTab(tabId, targetIndex = 0) {
+  const isForward = targetIndex >= appState.currentTabIndex;
+  const previousIndex = appState.currentTabIndex;
+  appState.currentTabIndex = targetIndex;
+
+  // Update animated sliding capsule on bottom nav
+  updateNavIndicator(targetIndex);
+
+  // Hide all tabs and remove existing animation classes
+  document.querySelectorAll('.tab-view').forEach(el => {
+    el.classList.add('hidden');
+    el.classList.remove('page-enter-right', 'page-enter-left');
+  });
+
+  // Update active state in bottom nav
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-
-  const targetTab = document.getElementById(tabId);
-  if (targetTab) targetTab.classList.remove('hidden');
-
   const activeNav = document.querySelector(`.nav-item[data-tab="${tabId}"]`);
   if (activeNav) activeNav.classList.add('active');
 
+  // Show target tab with direction-aware spring transition!
+  const targetTab = document.getElementById(tabId);
+  if (targetTab) {
+    targetTab.classList.remove('hidden');
+    targetTab.classList.add(isForward ? 'page-enter-right' : 'page-enter-left');
+  }
+
+  // Dynamic Island Brief Notification on Page Change
+  const pageTitles = {
+    'tab-home': { icon: '💳', name: 'Wallet Overview' },
+    'tab-scan': { icon: '📷', name: 'Camera Scanner Ready' },
+    'tab-receive': { icon: '📥', name: 'Terminal QR Code' },
+    'tab-voucher': { icon: '🎫', name: 'Offline Token Pay' },
+    'tab-history': { icon: '📑', name: 'Transaction Ledger' },
+    'tab-settings': { icon: '⚙️', name: 'Settings & Cloud' }
+  };
+  const page = pageTitles[tabId];
+  if (page && previousIndex !== targetIndex) {
+    expandDynamicIsland(page.icon, page.name, 'Swipe or tap to navigate', 1800);
+  }
+
+  // Tab specific lifecycle actions
   if (tabId === 'tab-receive') {
     renderReceiveQR();
   } else if (tabId === 'tab-history') {
@@ -576,8 +945,20 @@ function switchTab(tabId) {
   }
 }
 
+function updateNavIndicator(tabIndex) {
+  const pill = document.getElementById('nav-indicator-pill');
+  if (!pill) return;
+  const navItems = document.querySelectorAll('.nav-item');
+  const targetItem = navItems[tabIndex];
+  if (targetItem) {
+    const leftOffset = targetItem.offsetLeft;
+    pill.style.transform = `translateX(${leftOffset}px)`;
+    pill.style.width = `${targetItem.offsetWidth}px`;
+  }
+}
+
 /**
- * 9. QUICK PAY BENEFICIARIES / CONTACTS ROW
+ * 10. QUICK PAY BENEFICIARIES / CONTACTS ROW
  */
 function renderQuickContacts() {
   const container = document.getElementById('contacts-scroll-row');
@@ -601,7 +982,6 @@ function renderQuickContacts() {
 
   container.innerHTML = html;
 
-  // Click on contact opens payment sheet prefilled!
   container.querySelectorAll('.contact-bubble[data-phone]').forEach(el => {
     el.addEventListener('click', () => {
       triggerHaptic('light');
@@ -657,7 +1037,6 @@ function handleSaveContact() {
   triggerHaptic('success');
   expandDynamicIsland('👤', 'Contact Saved', `${name} added to Quick Pay`, 2500);
 
-  // Sync to cloud if online
   if (isNetworkOnline() && appState.token) {
     fetch('/api/cloud/contacts', {
       method: 'POST',
@@ -667,160 +1046,6 @@ function handleSaveContact() {
       },
       body: JSON.stringify({ name, phone, avatarColor: randomColor })
     }).catch(e => console.warn('Cloud contact sync deferred'));
-  }
-}
-
-/**
- * 10. AUTHENTICATION & REAL VERIFICATION CODE (OTP)
- */
-function openAuthModal() {
-  document.getElementById('auth-modal').classList.add('active');
-  document.getElementById('auth-step-phone').classList.remove('hidden');
-  document.getElementById('auth-step-otp').classList.add('hidden');
-}
-
-async function handleSendOtp() {
-  const phone = document.getElementById('auth-phone').value.trim();
-  const name = document.getElementById('auth-name').value.trim();
-
-  if (!phone) {
-    alert('Please enter your mobile phone number');
-    return;
-  }
-
-  const sendBtn = document.getElementById('btn-send-otp');
-  sendBtn.disabled = true;
-  sendBtn.textContent = 'Sending Verification Code...';
-
-  try {
-    const res = await fetch('/api/auth/send-otp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, name })
-    });
-    const data = await res.json();
-
-    if (data.success) {
-      dispatchNativeNotification('🔐 PayOffline Verification Code', `Your verification code is: ${data.verificationCode}. Valid for 5 minutes.`);
-      soundbox.playNotificationSound();
-      triggerHaptic('medium');
-
-      expandDynamicIsland('🔑', `Verification Code: ${data.verificationCode}`, `Dispatched to ${phone}`, 7000);
-      document.getElementById('auth-otp-input').value = data.verificationCode; // Auto-prefill for zero-friction testing
-
-      document.getElementById('auth-step-phone').classList.add('hidden');
-      document.getElementById('auth-step-otp').classList.remove('hidden');
-      document.getElementById('otp-target-phone').textContent = phone;
-
-      startOtpTimer();
-    } else {
-      alert('Error: ' + data.error);
-    }
-  } catch (err) {
-    const fallbackCode = '849201';
-    soundbox.playNotificationSound();
-    expandDynamicIsland('🔑', `Verification Code: ${fallbackCode}`, `Dispatched to ${phone}`, 7000);
-    document.getElementById('auth-otp-input').value = fallbackCode;
-
-    document.getElementById('auth-step-phone').classList.add('hidden');
-    document.getElementById('auth-step-otp').classList.remove('hidden');
-    document.getElementById('otp-target-phone').textContent = phone;
-    startOtpTimer();
-  } finally {
-    sendBtn.disabled = false;
-    sendBtn.textContent = '📲 Send Verification Code';
-  }
-}
-
-function startOtpTimer() {
-  if (appState.otpCountdownInterval) clearInterval(appState.otpCountdownInterval);
-  let seconds = 300;
-  const timerEl = document.getElementById('otp-timer');
-
-  appState.otpCountdownInterval = setInterval(() => {
-    seconds--;
-    if (seconds <= 0) {
-      clearInterval(appState.otpCountdownInterval);
-      timerEl.textContent = 'Code expired';
-    } else {
-      const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
-      const secs = (seconds % 60).toString().padStart(2, '0');
-      timerEl.textContent = `Expires in ${mins}:${secs}`;
-    }
-  }, 1000);
-}
-
-function dispatchNativeNotification(title, body) {
-  if ('Notification' in window && Notification.permission === 'granted') {
-    try {
-      new Notification(title, {
-        body: body,
-        icon: '/icons/icon.svg',
-        badge: '/icons/icon.svg'
-      });
-    } catch (e) {
-      console.warn('Native notification call:', e);
-    }
-  }
-}
-
-async function handleVerifyOtp() {
-  const phone = document.getElementById('auth-phone').value.trim();
-  const name = document.getElementById('auth-name').value.trim();
-  const otpCode = document.getElementById('auth-otp-input').value.trim();
-
-  if (!otpCode || otpCode.length < 6) {
-    alert('Please enter the full 6-digit verification code');
-    return;
-  }
-
-  const verifyBtn = document.getElementById('btn-verify-otp');
-  verifyBtn.disabled = true;
-  verifyBtn.textContent = 'Verifying...';
-
-  try {
-    const res = await fetch('/api/auth/verify-otp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, otpCode, name })
-    });
-    const data = await res.json();
-
-    if (data.success) {
-      walletEngine.setUser(data.user);
-      walletEngine.setAuthToken(data.token);
-      if (data.wallet && data.wallet.offlineAllocatedBalance) {
-        walletEngine.setOfflineBalance(data.wallet.offlineAllocatedBalance);
-      }
-
-      appState.user = data.user;
-      appState.token = data.token;
-
-      document.getElementById('auth-modal').classList.remove('active');
-      soundbox.playPaymentSuccessChime();
-      triggerHaptic('success');
-      expandDynamicIsland('🟢', `Welcome, ${data.user.name}!`, 'Offline Wallet Initialized', 3500);
-
-      updateUserHeader();
-      refreshDashboard();
-      autoRegisterDeviceCloud();
-    } else {
-      alert('Verification Failed: ' + data.error);
-    }
-  } catch (err) {
-    const mockUser = { id: 999, phone, name: name || 'Demo User', role: 'dual' };
-    walletEngine.setUser(mockUser);
-    walletEngine.setAuthToken('mock_offline_jwt_token');
-    appState.user = mockUser;
-    appState.token = 'mock_offline_jwt_token';
-
-    document.getElementById('auth-modal').classList.remove('active');
-    expandDynamicIsland('🟢', `Welcome, ${mockUser.name}!`, 'Offline Mode Enabled', 3000);
-    updateUserHeader();
-    refreshDashboard();
-  } finally {
-    verifyBtn.disabled = false;
-    verifyBtn.textContent = '✅ Verify & Open Wallet';
   }
 }
 
@@ -878,7 +1103,6 @@ function renderTransactionsList(filter = 'ALL') {
   const container = document.getElementById('full-txns-list');
   let history = walletEngine.getLocalHistory();
 
-  // Search query filter
   if (appState.searchQuery) {
     const q = appState.searchQuery;
     history = history.filter(t => 
@@ -1061,7 +1285,6 @@ async function onQrCodeScanned(qrContent) {
   }
 
   // CASE 2: Payer scanning a Separate Device Terminal QR
-  // Format: PAYOFFLINE:DEV:<deviceId>:<phone>:<name>:<amount>:<deviceName>
   let merchantPhone = '';
   let merchantName = 'Merchant';
   let requestedAmount = '';
@@ -1210,10 +1433,8 @@ function renderReceiveQR() {
 
   let qrPayload = '';
   if (appState.receiveQrMode === 'DEVICE') {
-    // Dedicated separate device terminal QR code!
     qrPayload = walletEngine.getDeviceTerminalQrPayload(amountInput);
   } else {
-    // Standard User QR
     qrPayload = `PAYOFFLINE:MERCHANT:${user.phone}:${user.name}:${amountInput}`;
   }
 
@@ -1397,7 +1618,6 @@ async function handleCloudBackupAction() {
     }
   }
 
-  // Local snapshot fallback
   walletEngine.setLastCloudSync();
   triggerHaptic('success');
   expandDynamicIsland('✅', 'Local Snapshot Created', 'Wallet data saved securely', 3000);
@@ -1463,7 +1683,7 @@ function handleLogout() {
     localStorage.removeItem('payoffline_token');
     appState.token = null;
     triggerHaptic('medium');
-    openAuthModal();
+    showOnboardingScreen();
   }
 }
 

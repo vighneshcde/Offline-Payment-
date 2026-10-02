@@ -77,7 +77,7 @@ body {
   transition: background-color 0.4s var(--spring-smooth);
 }
 
-/* App Viewport Container (iPhone Form Factor) */
+/* App Viewport Container with Ambient Background Aura */
 #app-container {
   width: 100%;
   max-width: 440px;
@@ -92,15 +92,29 @@ body {
   overflow: hidden;
 }
 
+#app-container::before {
+  content: '';
+  position: absolute;
+  top: -120px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, rgba(0, 122, 255, 0.15) 0%, rgba(52, 199, 89, 0.08) 50%, transparent 80%);
+  filter: blur(50px);
+  pointer-events: none;
+  z-index: 0;
+}
+
 /* ==========================================================================
    Apple Dynamic Island Component
    ========================================================================== */
 .dynamic-island-wrapper {
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 120;
   width: 100%;
-  padding: 10px 16px 4px;
+  padding: 8px 16px 4px;
   display: flex;
   justify-content: center;
   pointer-events: none;
@@ -124,7 +138,6 @@ body {
   overflow: hidden;
 }
 
-/* Dynamic Island Compact State */
 #dynamic-island .island-left {
   display: flex;
   align-items: center;
@@ -147,7 +160,6 @@ body {
   font-weight: 600;
 }
 
-/* Dynamic Island Expanded State */
 #dynamic-island.expanded {
   width: 95%;
   max-width: 400px;
@@ -235,7 +247,6 @@ header.app-header {
   font-weight: 500;
 }
 
-/* Network Mode Pill */
 .network-badge {
   display: flex;
   align-items: center;
@@ -276,7 +287,6 @@ header.app-header {
   box-shadow: 0 0 8px var(--ios-orange);
 }
 
-/* Offline Notice Banner */
 .offline-banner {
   background: linear-gradient(90deg, #9a3412, #c2410c);
   color: #ffedd5;
@@ -295,16 +305,78 @@ header.app-header {
 }
 
 /* ==========================================================================
-   Main Content Views
+   FLUID PAGE CHANGE ANIMATIONS (Direction-Aware Spring Transitions)
    ========================================================================== */
 main.content-area {
   flex: 1;
   padding: 16px;
   padding-bottom: 100px;
   overflow-y: auto;
+  position: relative;
 }
 
-/* iOS Card Aesthetics */
+.tab-view {
+  width: 100%;
+}
+
+/* Slide in from right (forward tab) */
+.tab-view.page-enter-right {
+  animation: pageSlideInRight 0.42s var(--spring-smooth) forwards;
+}
+
+/* Slide in from left (backward tab) */
+.tab-view.page-enter-left {
+  animation: pageSlideInLeft 0.42s var(--spring-smooth) forwards;
+}
+
+@keyframes pageSlideInRight {
+  0% {
+    opacity: 0;
+    transform: translateX(45px) scale(0.96);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes pageSlideInLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(-45px) scale(0.96);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+/* Stagger card child entrance */
+.tab-view .card {
+  animation: cardStagger 0.45s var(--spring-bounce) both;
+}
+
+.tab-view .card:nth-child(1) { animation-delay: 0.03s; }
+.tab-view .card:nth-child(2) { animation-delay: 0.08s; }
+.tab-view .card:nth-child(3) { animation-delay: 0.13s; }
+.tab-view .card:nth-child(4) { animation-delay: 0.18s; }
+
+@keyframes cardStagger {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Cards */
 .card {
   background-color: var(--ios-card);
   border: 1px solid var(--ios-border);
@@ -326,7 +398,6 @@ main.content-area {
   background: linear-gradient(150deg, #ffffff, #f2f2f7);
 }
 
-/* Hero Balance Display */
 .balance-header {
   display: flex;
   justify-content: space-between;
@@ -414,9 +485,7 @@ main.content-area {
   border-left: 3.5px solid var(--ios-blue);
 }
 
-/* ==========================================================================
-   Quick-Pay Contacts / Beneficiaries Section
-   ========================================================================== */
+/* Contacts Row */
 .contacts-scroll-row {
   display: flex;
   gap: 14px;
@@ -518,25 +587,10 @@ main.content-area {
   transition: transform 0.2s var(--spring-bounce);
 }
 
-.action-icon.scan {
-  background: linear-gradient(135deg, var(--ios-green), #248a3d);
-  color: #fff;
-}
-
-.action-icon.receive {
-  background: linear-gradient(135deg, var(--ios-blue), #0056b3);
-  color: #fff;
-}
-
-.action-icon.pay-qr {
-  background: linear-gradient(135deg, var(--ios-purple), #7e22ce);
-  color: #fff;
-}
-
-.action-icon.cloud {
-  background: linear-gradient(135deg, var(--ios-orange), #d97706);
-  color: #fff;
-}
+.action-icon.scan { background: linear-gradient(135deg, var(--ios-green), #248a3d); color: #fff; }
+.action-icon.receive { background: linear-gradient(135deg, var(--ios-blue), #0056b3); color: #fff; }
+.action-icon.pay-qr { background: linear-gradient(135deg, var(--ios-purple), #7e22ce); color: #fff; }
+.action-icon.cloud { background: linear-gradient(135deg, var(--ios-orange), #d97706); color: #fff; }
 
 .action-btn span {
   font-size: 0.74rem;
@@ -544,7 +598,7 @@ main.content-area {
   text-align: center;
 }
 
-/* Search Bar (iOS Style) */
+/* Search Bar */
 .ios-search-bar {
   background: var(--ios-card-secondary);
   border-radius: var(--radius-md);
@@ -569,9 +623,7 @@ main.content-area {
   color: var(--ios-text-secondary);
 }
 
-/* ==========================================================================
-   Separate Device Terminal QR Card
-   ========================================================================== */
+/* Device Badge */
 .device-badge-box {
   display: inline-flex;
   align-items: center;
@@ -601,7 +653,7 @@ main.content-area {
   100% { transform: scale(0.9); opacity: 0.8; }
 }
 
-/* iOS Segmented Control */
+/* Segmented Control */
 .segmented-control {
   display: flex;
   background: var(--ios-card-secondary);
@@ -765,7 +817,7 @@ main.content-area {
 }
 
 /* ==========================================================================
-   Transactions List (iOS Inset Grouped Table Style)
+   Transactions List
    ========================================================================== */
 .transaction-list {
   display: flex;
@@ -806,15 +858,8 @@ main.content-area {
   font-size: 1.15rem;
 }
 
-.txn-sent .txn-icon {
-  background: rgba(255, 59, 48, 0.16);
-  color: var(--ios-red);
-}
-
-.txn-received .txn-icon {
-  background: rgba(52, 199, 89, 0.16);
-  color: var(--ios-green);
-}
+.txn-sent .txn-icon { background: rgba(255, 59, 48, 0.16); color: var(--ios-red); }
+.txn-received .txn-icon { background: rgba(52, 199, 89, 0.16); color: var(--ios-green); }
 
 .txn-meta h4 {
   font-size: 0.9rem;
@@ -836,13 +881,8 @@ main.content-area {
   font-weight: 700;
 }
 
-.txn-sent .txn-amount {
-  color: var(--ios-text-primary);
-}
-
-.txn-received .txn-amount {
-  color: var(--ios-green);
-}
+.txn-sent .txn-amount { color: var(--ios-text-primary); }
+.txn-received .txn-amount { color: var(--ios-green); }
 
 .txn-status-tag {
   font-size: 0.68rem;
@@ -864,7 +904,7 @@ main.content-area {
 }
 
 /* ==========================================================================
-   Apple Spring Bottom Sheets & Modals
+   Modals & Overlays
    ========================================================================== */
 .modal-overlay {
   position: fixed;
@@ -941,8 +981,122 @@ main.content-area {
 }
 
 /* ==========================================================================
-   Face ID Biometrics Scanning Animation
+   FULLSCREEN ONBOARDING & 6-DIGIT OTP EXPERIENCE
    ========================================================================== */
+#onboarding-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--ios-surface);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+  transition: opacity 0.4s var(--spring-smooth), transform 0.4s var(--spring-smooth);
+}
+
+#onboarding-screen.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(1.05);
+}
+
+.onboarding-card {
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+  animation: onboardingFadeIn 0.5s var(--spring-bounce);
+}
+
+@keyframes onboardingFadeIn {
+  from { opacity: 0; transform: translateY(30px) scale(0.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.onboarding-logo {
+  width: 76px;
+  height: 76px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, var(--ios-green), #059669);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+  margin: 0 auto 16px;
+  box-shadow: 0 10px 30px var(--ios-green-glow);
+  position: relative;
+}
+
+.onboarding-logo::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 28px;
+  border: 2px dashed rgba(52, 199, 89, 0.4);
+  animation: spinSlow 12s linear infinite;
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Notification Permission Card in Onboarding */
+.notif-permission-box {
+  background: rgba(0, 122, 255, 0.1);
+  border: 1px solid rgba(0, 122, 255, 0.25);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-top: 14px;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.notif-permission-box span {
+  font-size: 0.76rem;
+  color: var(--ios-text-secondary);
+  line-height: 1.3;
+}
+
+/* 6-Digit Individual OTP Input Boxes */
+.otp-boxes-group {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 20px 0;
+}
+
+.otp-box {
+  flex: 1;
+  height: 56px;
+  background: var(--ios-card-secondary);
+  border: 1.5px solid var(--ios-border-strong);
+  border-radius: var(--radius-md);
+  font-size: 1.6rem;
+  font-weight: 800;
+  text-align: center;
+  color: var(--ios-text-primary);
+  outline: none;
+  transition: all 0.2s var(--spring-bounce);
+}
+
+.otp-box:focus {
+  border-color: var(--ios-green);
+  box-shadow: 0 0 0 3px var(--ios-green-glow);
+  transform: translateY(-2px);
+}
+
+.otp-box.filled {
+  border-color: var(--ios-green);
+  background: rgba(52, 199, 89, 0.08);
+}
+
+/* Face ID Biometrics Overlay */
 .faceid-modal-overlay {
   position: fixed;
   inset: 0;
@@ -1005,9 +1159,7 @@ main.content-area {
   100% { transform: scale(1) rotate(360deg); }
 }
 
-/* ==========================================================================
-   Settings & iOS Inset List Style
-   ========================================================================== */
+/* Settings List */
 .ios-list-group {
   background: var(--ios-card);
   border-radius: var(--radius-lg);
@@ -1115,7 +1267,7 @@ input:checked + .switch-slider:before {
 }
 
 /* ==========================================================================
-   Bottom Navigation Bar (iOS Tab Bar)
+   Bottom Navigation Bar with Animated Sliding Indicator Pill
    ========================================================================== */
 nav.bottom-nav {
   position: fixed;
@@ -1131,6 +1283,24 @@ nav.bottom-nav {
   align-items: center;
   z-index: 50;
   padding-bottom: 8px;
+  position: relative;
+}
+
+/* Sliding active indicator capsule */
+.nav-indicator-pill {
+  position: absolute;
+  top: 10px;
+  width: 62px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  pointer-events: none;
+  transition: transform 0.35s var(--spring-bounce), width 0.25s ease;
+  z-index: 1;
+}
+
+[data-theme="light"] .nav-indicator-pill {
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .nav-item {
@@ -1144,8 +1314,10 @@ nav.bottom-nav {
   border: none;
   outline: none;
   transition: all 0.2s var(--spring-bounce);
-  padding: 6px 10px;
-  border-radius: 10px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  z-index: 2;
+  position: relative;
 }
 
 .nav-item.active {
