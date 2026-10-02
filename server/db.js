@@ -121,6 +121,49 @@ const initDB = async () => {
       )
     `);
 
+    // Multi-Device Registry: Tracks each separate physical device QR and login
+    await run(`
+      CREATE TABLE IF NOT EXISTS devices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        device_id TEXT UNIQUE NOT NULL,
+        device_name TEXT NOT NULL,
+        platform TEXT,
+        public_key TEXT,
+        is_primary INTEGER DEFAULT 0,
+        last_active_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Contacts / Beneficiaries for Quick-Pay
+    await run(`
+      CREATE TABLE IF NOT EXISTS contacts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        avatar_color TEXT DEFAULT '#34c759',
+        favorite INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Cloud Backups Vault: Stores encrypted snapshot backups of user offline wallets and ledgers
+    await run(`
+      CREATE TABLE IF NOT EXISTS cloud_backups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        device_id TEXT NOT NULL,
+        backup_data TEXT NOT NULL,
+        version INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
     console.log('✅ SQLite Schema initialized successfully.');
   } catch (err) {
     console.error('❌ Error initializing SQLite schema:', err);

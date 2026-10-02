@@ -124,7 +124,54 @@ async function runTests() {
     console.log('   Latest Txn:', histRes.data.transactions[0].id, 'Amount: ₹' + histRes.data.transactions[0].amount);
     console.log('   ✅ Transaction Ledger PASSED\n');
 
-    console.log('🎉 ALL 8 TEST SUITES PASSED FLAWLESSLY! SYSTEM IS 100% OPERATIONAL.');
+    // 9. Separate Device Terminal Registration & Unique QR
+    console.log('9️⃣ Testing Separate Device Terminal Registration (POST /api/cloud/device/register)...');
+    const deviceId = 'DEV-IPHONE-TEST01';
+    const deviceRes = await request('/api/cloud/device/register', 'POST', {
+      deviceId,
+      deviceName: 'Apple iPhone 15 Pro (iOS)',
+      platform: 'iPhone iOS 18',
+      publicKey: 'test_device_public_key_abc123'
+    }, token);
+
+    console.log('   Device Registered:', deviceRes.data.device.deviceName);
+    console.log('   Dedicated Terminal QR Payload:', deviceRes.data.device.terminalQrPayload);
+    if (!deviceRes.data.success || !deviceRes.data.device.terminalQrPayload.includes('DEV-IPHONE-TEST01')) {
+      throw new Error('Device Terminal QR registration failed');
+    }
+    console.log('   ✅ Separate Device Terminal QR PASSED\n');
+
+    // 10. Cloud Contacts & Beneficiaries for Quick-Pay
+    console.log('🔟 Testing Cloud Contacts & Quick-Pay Beneficiaries (GET /api/cloud/contacts)...');
+    const contactsRes = await request('/api/cloud/contacts', 'GET', null, token);
+    console.log(`   Retrieved ${contactsRes.data.contacts.length} saved contacts:`, contactsRes.data.contacts.map(c => c.name).join(', '));
+    if (!contactsRes.data.success || contactsRes.data.contacts.length === 0) {
+      throw new Error('Contacts retrieval failed');
+    }
+    console.log('   ✅ Cloud Contacts & Quick-Pay PASSED\n');
+
+    // 11. Cloud Backup Vault & Multi-Device Restore
+    console.log('1️⃣1️⃣ Testing Cloud Backup & Multi-Device Restore (POST /api/cloud/backup & GET /api/cloud/restore)...');
+    const mockBackupPayload = {
+      version: 2,
+      deviceId,
+      savedOfflineBalance: 2450.00,
+      timestamp: new Date().toISOString()
+    };
+    const backupRes = await request('/api/cloud/backup', 'POST', {
+      deviceId,
+      backupData: mockBackupPayload
+    }, token);
+    console.log('   Backup Snapshot Message:', backupRes.data.message);
+
+    const restoreRes = await request('/api/cloud/restore', 'GET', null, token);
+    console.log('   Restored Snapshot Device:', restoreRes.data.backup.deviceId, 'Balance:', restoreRes.data.backup.savedOfflineBalance);
+    if (!restoreRes.data.success || restoreRes.data.backup.deviceId !== deviceId) {
+      throw new Error('Cloud restore failed');
+    }
+    console.log('   ✅ Cloud Backup Vault & Restore PASSED\n');
+
+    console.log('🎉 ALL 11 TEST SUITES PASSED FLAWLESSLY! SYSTEM IS 100% OPERATIONAL WITH CLOUD & MULTI-DEVICE SUPPORT.');
   } catch (err) {
     console.error('❌ Test failed:', err.message);
     process.exit(1);
