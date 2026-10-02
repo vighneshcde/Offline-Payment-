@@ -21,20 +21,28 @@
 <body>
 
   <!-- ================= FULLSCREEN ONBOARDING & REAL MOBILE VERIFICATION ================= -->
-  <div id="onboarding-screen" class="hidden">
+  <!-- ================= FULLSCREEN LOGIN & ONBOARDING PORTAL ================= -->
+  <div id="onboarding-screen">
     <div class="onboarding-card">
       <div class="onboarding-logo">⚡</div>
       
-      <!-- Step 1: Create Account & Profile Form -->
+      <!-- Step 1: Login or Setup Profile Form -->
       <div id="onboarding-step-create">
-        <h2 style="font-size:1.4rem; font-weight:800; color:var(--ios-text-primary); letter-spacing:-0.5px;">Setup Your Profile</h2>
-        <p style="font-size:0.8rem; color:var(--ios-text-secondary); margin-top:4px; margin-bottom:16px;">
-          Create your profile and link your bank account to enable offline payments and cloud sync.
+        
+        <!-- Segmented Tab: Login vs Create Profile -->
+        <div class="segmented-control" style="margin-bottom:14px;">
+          <button type="button" id="auth-mode-login" class="segment-btn active">📲 Quick Login</button>
+          <button type="button" id="auth-mode-signup" class="segment-btn">✨ Create Profile</button>
+        </div>
+
+        <h2 id="ob-header-title" style="font-size:1.35rem; font-weight:800; color:var(--ios-text-primary); letter-spacing:-0.5px;">Welcome Back</h2>
+        <p id="ob-header-sub" style="font-size:0.8rem; color:var(--ios-text-secondary); margin-top:4px; margin-bottom:16px;">
+          Enter your registered mobile phone number to log in.
         </p>
 
-        <div class="input-group" style="text-align:left;">
+        <div class="input-group" id="ob-name-group" style="text-align:left; display:none;">
           <label class="input-label">Full Name</label>
-          <input type="text" id="ob-name" class="text-input" placeholder="e.g. Alex Sharma" value="Alex Sharma">
+          <input type="text" id="ob-name" class="text-input" placeholder="e.g. Alex Sharma">
         </div>
 
         <div class="input-group" style="text-align:left;">
@@ -47,12 +55,12 @@
               <option value="+971">🇦🇪 +971</option>
               <option value="+65">🇸🇬 +65</option>
             </select>
-            <input type="tel" id="ob-phone" class="text-input" placeholder="9876543210" value="9876543210" style="flex:1;">
+            <input type="tel" id="ob-phone" class="text-input" placeholder="9876543210" style="flex:1;">
           </div>
         </div>
 
-        <!-- Bank Details Section -->
-        <div style="background:var(--ios-card-secondary); border:1px solid var(--ios-border); border-radius:14px; padding:12px 14px; margin-bottom:14px; text-align:left;">
+        <!-- Bank Details Section (Shown in Create Profile mode) -->
+        <div id="ob-bank-section" style="background:var(--ios-card-secondary); border:1px solid var(--ios-border); border-radius:14px; padding:12px 14px; margin-bottom:14px; text-align:left; display:none;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
             <span style="font-size:0.8rem; font-weight:700; color:var(--ios-text-primary);">🏦 Bank Account Details</span>
             <span style="font-size:0.68rem; color:var(--ios-green); font-weight:700;">Required for Vault</span>
@@ -74,22 +82,22 @@
 
           <div class="input-group" style="margin-bottom:8px;">
             <label class="input-label" style="font-size:0.7rem;">Bank Account Number</label>
-            <input type="password" id="ob-bank-account" class="text-input" placeholder="e.g. 50100456789012" value="50100456789012" style="font-size:0.85rem; padding:10px 12px;">
+            <input type="password" id="ob-bank-account" class="text-input" placeholder="e.g. 50100456789012" style="font-size:0.85rem; padding:10px 12px;">
           </div>
 
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
             <div class="input-group" style="margin-bottom:0;">
               <label class="input-label" style="font-size:0.7rem;">IFSC Code</label>
-              <input type="text" id="ob-bank-ifsc" class="text-input" placeholder="SBIN0001234" value="SBIN0001234" style="text-transform:uppercase; font-size:0.85rem; padding:10px 12px;">
+              <input type="text" id="ob-bank-ifsc" class="text-input" placeholder="SBIN0001234" style="text-transform:uppercase; font-size:0.85rem; padding:10px 12px;">
             </div>
             <div class="input-group" style="margin-bottom:0;">
               <label class="input-label" style="font-size:0.7rem;">UPI ID</label>
-              <input type="text" id="ob-bank-upi" class="text-input" placeholder="alex@payoffline" value="alex@payoffline" style="font-size:0.85rem; padding:10px 12px;">
+              <input type="text" id="ob-bank-upi" class="text-input" placeholder="alex@payoffline" style="font-size:0.85rem; padding:10px 12px;">
             </div>
           </div>
         </div>
 
-        <div class="input-group" style="text-align:left;">
+        <div class="input-group" id="ob-role-group" style="text-align:left; display:none;">
           <label class="input-label">Account Role</label>
           <div class="segmented-control" style="margin-bottom:0;">
             <button type="button" id="ob-role-personal" class="segment-btn active">👤 Personal Wallet</button>
@@ -104,7 +112,7 @@
         </div>
 
         <button id="btn-ob-send-code" class="btn-primary">
-          📲 Save Profile & Send Code
+          📲 Send Login Code
         </button>
       </div>
 
@@ -488,6 +496,12 @@
           
           <div style="margin-top:10px; display:inline-block; padding:4px 12px; background:rgba(52,199,89,0.15); border:1px solid rgba(52,199,89,0.3); border-radius:12px; color:var(--ios-green); font-size:0.75rem; font-weight:700;">
             ✓ Mobile Verified Identity
+          </div>
+
+          <div style="margin-top:10px;">
+            <button id="btn-settings-switch-account" class="btn-secondary" style="width:auto; padding:6px 14px; font-size:0.75rem; border-radius:12px; margin:0 auto;">
+              📲 Switch Account / Login
+            </button>
           </div>
 
           <!-- Lifetime User Metrics -->

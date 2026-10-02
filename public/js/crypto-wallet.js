@@ -90,7 +90,11 @@ class CryptoWallet {
   }
 
   setUser(user) {
-    localStorage.setItem(this.STORAGE_KEYS.USER, JSON.stringify(user));
+    if (!user) {
+      localStorage.removeItem(this.STORAGE_KEYS.USER);
+    } else {
+      localStorage.setItem(this.STORAGE_KEYS.USER, JSON.stringify(user));
+    }
   }
 
   getAuthToken() {
@@ -98,7 +102,11 @@ class CryptoWallet {
   }
 
   setAuthToken(token) {
-    localStorage.setItem(this.STORAGE_KEYS.TOKEN, token);
+    if (!token) {
+      localStorage.removeItem(this.STORAGE_KEYS.TOKEN);
+    } else {
+      localStorage.setItem(this.STORAGE_KEYS.TOKEN, token);
+    }
   }
 
   // Offline Balances

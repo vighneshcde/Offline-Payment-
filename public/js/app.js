@@ -247,25 +247,34 @@ function requestNotificationPermission() {
  * 4. Auth Session & Onboarding Handling
  */
 function initAuthSession() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const forceLogin = urlParams.get('login') === 'true' || urlParams.get('auth') === 'true';
+
   const user = walletEngine.getUser();
   const token = walletEngine.getAuthToken();
 
-  if (user && token) {
+  if (user && token && !forceLogin) {
     appState.user = user;
     appState.token = token;
-    document.getElementById('onboarding-screen').classList.add('hidden');
+    const ob = document.getElementById('onboarding-screen');
+    if (ob) ob.classList.add('hidden');
     updateUserHeader();
   } else {
-    // Show Fullscreen Onboarding Screen
+    // Show Fullscreen Login & Profile Screen as Page 1
     showOnboardingScreen();
   }
 }
 
-function showOnboardingScreen() {
+function showOnboardingScreen(mode = 'login') {
   const ob = document.getElementById('onboarding-screen');
-  ob.classList.remove('hidden');
-  document.getElementById('onboarding-step-create').classList.remove('hidden');
-  document.getElementById('onboarding-step-verify').classList.add('hidden');
+  if (ob) ob.classList.remove('hidden');
+  const createStep = document.getElementById('onboarding-step-create');
+  if (createStep) createStep.classList.remove('hidden');
+  const verifyStep = document.getElementById('onboarding-step-verify');
+  if (verifyStep) verifyStep.classList.add('hidden');
+  if (typeof setAuthMode === 'function') {
+    setAuthMode(mode);
+  }
 }
 
 function updateUserHeader() {
@@ -456,7 +465,57 @@ async function autoRegisterDeviceCloud() {
 /**
  * 8. ONBOARDING & 6-DIGIT REAL DEVICE NOTIFICATION VERIFICATION
  */
+let currentAuthMode = 'login'; // 'login' or 'signup'
+
+function setAuthMode(mode) {
+  currentAuthMode = mode;
+  const btnLoginMode = document.getElementById('auth-mode-login');
+  const btnSignupMode = document.getElementById('auth-mode-signup');
+  const nameGroup = document.getElementById('ob-name-group');
+  const bankSection = document.getElementById('ob-bank-section');
+  const roleGroup = document.getElementById('ob-role-group');
+  const headerTitle = document.getElementById('ob-header-title');
+  const headerSub = document.getElementById('ob-header-sub');
+  const sendBtn = document.getElementById('btn-ob-send-code');
+
+  if (mode === 'login') {
+    if (btnLoginMode) btnLoginMode.classList.add('active');
+    if (btnSignupMode) btnSignupMode.classList.remove('active');
+    if (nameGroup) nameGroup.style.display = 'none';
+    if (bankSection) bankSection.style.display = 'none';
+    if (roleGroup) roleGroup.style.display = 'none';
+    if (headerTitle) headerTitle.textContent = 'Welcome Back';
+    if (headerSub) headerSub.textContent = 'Enter your registered mobile phone number to log in.';
+    if (sendBtn) sendBtn.textContent = '📲 Send Login Code';
+  } else {
+    if (btnSignupMode) btnSignupMode.classList.add('active');
+    if (btnLoginMode) btnLoginMode.classList.remove('active');
+    if (nameGroup) nameGroup.style.display = 'block';
+    if (bankSection) bankSection.style.display = 'block';
+    if (roleGroup) roleGroup.style.display = 'block';
+    if (headerTitle) headerTitle.textContent = 'Setup Your Profile';
+    if (headerSub) headerSub.textContent = 'Create your profile and link your bank account to enable offline payments.';
+    if (sendBtn) sendBtn.textContent = '✨ Create Profile & Send Code';
+  }
+}
+
 function initOnboardingEvents() {
+  const btnLoginMode = document.getElementById('auth-mode-login');
+  const btnSignupMode = document.getElementById('auth-mode-signup');
+  const sendBtn = document.getElementById('btn-ob-send-code');
+
+  if (btnLoginMode && btnSignupMode) {
+    btnLoginMode.addEventListener('click', () => {
+      setAuthMode('login');
+      triggerHaptic('light');
+    });
+
+    btnSignupMode.addEventListener('click', () => {
+      setAuthMode('signup');
+      triggerHaptic('light');
+    });
+  }
+
   // Role selector buttons
   const rolePersonal = document.getElementById('ob-role-personal');
   const roleMerchant = document.getElementById('ob-role-merchant');
@@ -486,9 +545,8 @@ function initOnboardingEvents() {
   }
 
   // Create Account & Send Code Button
-  const btnSendCode = document.getElementById('btn-ob-send-code');
-  if (btnSendCode) {
-    btnSendCode.addEventListener('click', handleOnboardingSendCode);
+  if (sendBtn) {
+    sendBtn.addEventListener('click', handleOnboardingSendCode);
   }
 
   // Verify Button
@@ -516,7 +574,8 @@ function initOnboardingEvents() {
 }
 
 async function handleOnboardingSendCode() {
-  const name = document.getElementById('ob-name').value.trim();
+  const nameInput = document.getElementById('ob-name');
+  const name = nameInput ? nameInput.value.trim() : '';
   const rawPhone = document.getElementById('ob-phone').value.trim().replace(/\s+/g, '');
   const cc = document.getElementById('ob-country-code').value;
   const bankName = document.getElementById('ob-bank-name')?.value || 'State Bank of India';
@@ -525,14 +584,14 @@ async function handleOnboardingSendCode() {
   const bankUpiId = document.getElementById('ob-bank-upi')?.value || '';
 
   if (!rawPhone || rawPhone.length < 5) {
-    alert('Please enter a valid mobile phone number');
+    alert('Please enter your mobile phone number');
     return;
   }
 
   const fullPhone = rawPhone.startsWith('+') ? rawPhone : `${cc}${rawPhone}`;
   appState.pendingVerificationPhone = fullPhone;
-  appState.pendingVerificationName = name || 'User';
-  appState.pendingBankDetails = { bankName, bankAccountNo, bankIfsc, bankUpiId };
+  appState.pendingVerificationName = name || (currentAuthMode === 'login' ? '' : 'User');
+  appState.pendingBankDetails = currentAuthMode === 'signup' ? { bankName, bankAccountNo, bankIfsc, bankUpiId } : null;
 
   const sendBtn = document.getElementById('btn-ob-send-code');
   sendBtn.disabled = true;
@@ -994,6 +1053,8 @@ function initUIEvents() {
   if (rowChangePin) rowChangePin.addEventListener('click', handleChangePin);
   const rowLogout = document.getElementById('row-logout');
   if (rowLogout) rowLogout.addEventListener('click', handleLogout);
+  const btnSwitchAccount = document.getElementById('btn-settings-switch-account');
+  if (btnSwitchAccount) btnSwitchAccount.addEventListener('click', handleLogout);
 
   // Bank Details Modal
   const rowEditBank = document.getElementById('row-edit-bank');
@@ -2075,11 +2136,15 @@ function handleChangePin() {
 }
 
 function handleLogout() {
-  if (confirm('Log out from this device? Offline wallet will remain secured locally.')) {
+  if (confirm('Log out from this device? You can sign in anytime with your mobile number.')) {
     localStorage.removeItem('payoffline_token');
+    localStorage.removeItem('payoffline_user');
+    walletEngine.setUser(null);
+    walletEngine.setAuthToken(null);
     appState.token = null;
+    appState.user = null;
     triggerHaptic('medium');
-    showOnboardingScreen();
+    showOnboardingScreen('login');
   }
 }
 
