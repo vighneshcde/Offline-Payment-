@@ -2,7 +2,7 @@
   "metadata": {
     "firebaseProjectId": "payoffline-prod",
     "cloudStatus": "ACTIVE_FIREBASE_VAULT",
-    "lastSync": "2026-10-02T12:25:47.726Z"
+    "lastSync": "2026-10-02T12:38:23.400Z"
   },
   "users": {
     "+919876543210": {
@@ -60,7 +60,7 @@
         "totalReceived": 0,
         "txnCount": 0
       },
-      "updatedAt": "2026-10-02T12:13:35.685Z"
+      "updatedAt": "2026-10-02T12:38:23.398Z"
     }
   },
   "transactions": {
