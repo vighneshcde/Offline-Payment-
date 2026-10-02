@@ -405,6 +405,22 @@
           <div style="margin-top:10px; display:inline-block; padding:4px 12px; background:rgba(52,199,89,0.15); border:1px solid rgba(52,199,89,0.3); border-radius:12px; color:var(--ios-green); font-size:0.75rem; font-weight:700;">
             ✓ Mobile Verified Identity
           </div>
+
+          <!-- Lifetime User Metrics -->
+          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-top:16px; padding-top:14px; border-top:1px solid var(--ios-border);">
+            <div style="background:var(--ios-card-secondary); padding:8px 6px; border-radius:10px;">
+              <div style="font-size:0.68rem; color:var(--ios-text-secondary); text-transform:uppercase; font-weight:600;">Total Spent</div>
+              <div id="settings-total-spent" style="font-size:0.88rem; font-weight:700; color:var(--ios-text-primary); margin-top:2px;">₹0.00</div>
+            </div>
+            <div style="background:var(--ios-card-secondary); padding:8px 6px; border-radius:10px;">
+              <div style="font-size:0.68rem; color:var(--ios-text-secondary); text-transform:uppercase; font-weight:600;">Received</div>
+              <div id="settings-total-received" style="font-size:0.88rem; font-weight:700; color:var(--ios-green); margin-top:2px;">₹0.00</div>
+            </div>
+            <div style="background:var(--ios-card-secondary); padding:8px 6px; border-radius:10px;">
+              <div style="font-size:0.68rem; color:var(--ios-text-secondary); text-transform:uppercase; font-weight:600;">Total Txns</div>
+              <div id="settings-txn-count" style="font-size:0.88rem; font-weight:700; color:var(--ios-blue); margin-top:2px;">0</div>
+            </div>
+          </div>
         </div>
 
         <!-- Device Identity & Terminal Card -->
@@ -431,6 +447,33 @@
               </div>
             </div>
             <div class="ios-list-right">›</div>
+          </div>
+        </div>
+
+        <!-- Permanent Data Vault & Central Ledger -->
+        <div class="ios-list-group">
+          <div class="ios-list-row" id="row-open-data-vault" style="cursor:pointer;">
+            <div class="ios-list-left">
+              <div class="ios-list-icon" style="background:#5856d6;">📊</div>
+              <div>
+                <div class="ios-list-title">Data Vault & Central Ledger</div>
+                <div class="ios-list-sub">All payments, users & double-entry records</div>
+              </div>
+            </div>
+            <div class="ios-list-right">›</div>
+          </div>
+
+          <div class="ios-list-row" id="row-export-vault" style="cursor:pointer;">
+            <div class="ios-list-left">
+              <div class="ios-list-icon" style="background:#30b0c7;">💾</div>
+              <div>
+                <div class="ios-list-title">Export Database Audit (JSON)</div>
+                <div class="ios-list-sub">Complete snapshot of all tables & ledgers</div>
+              </div>
+            </div>
+            <div class="ios-list-right">
+              <span style="font-size:0.75rem; color:var(--ios-blue); font-weight:600;">Download</span>
+            </div>
           </div>
         </div>
 
@@ -657,6 +700,14 @@
               <span>Crypto Proof:</span>
               <b id="receipt-sig" style="font-size:0.68rem; color:#15803d; font-family:monospace;"></b>
             </div>
+            <div style="display:flex; justify-content:space-between;">
+              <span>Ledger Impact:</span>
+              <b id="receipt-ledger-impact" style="font-size:0.72rem; color:var(--ios-blue);">Double-Entry Verified</b>
+            </div>
+            <div style="display:flex; justify-content:space-between;">
+              <span>Terminal:</span>
+              <b id="receipt-device-info" style="font-family:monospace; font-size:0.7rem; color:#64748b;"></b>
+            </div>
           </div>
         </div>
 
@@ -736,6 +787,97 @@
         <button id="btn-submit-topup" class="btn-primary mt-2">
           Add to Bank Vault
         </button>
+      </div>
+    </div>
+
+    <!-- 7. DATA VAULT & CENTRAL AUDIT LEDGER MODAL -->
+    <div id="modal-data-vault" class="modal-overlay">
+      <div class="modal-content modal-wide">
+        <div class="sheet-grabber"></div>
+        <div class="modal-header">
+          <div>
+            <h3>📊 Data Vault & Audit Ledger</h3>
+            <p style="font-size:0.74rem; color:var(--ios-text-secondary); margin-top:2px;">Complete permanent storage for all users & payments</p>
+          </div>
+          <button class="close-btn" id="btn-close-data-vault">&times;</button>
+        </div>
+
+        <!-- Navigation Tabs inside Vault -->
+        <div class="vault-tabs">
+          <button class="vault-tab-btn active" data-vtab="kpi">Overview</button>
+          <button class="vault-tab-btn" data-vtab="ledger">Double-Entry Ledger</button>
+          <button class="vault-tab-btn" data-vtab="users">All Users</button>
+          <button class="vault-tab-btn" data-vtab="payments">Payments Audit</button>
+        </div>
+
+        <!-- View 1: KPI Overview -->
+        <div id="vtab-view-kpi" class="vault-view">
+          <div class="vault-stats-grid">
+            <div class="vault-kpi-card">
+              <div class="vault-kpi-title">Registered Users</div>
+              <div id="vkpi-users" class="vault-kpi-val">0</div>
+            </div>
+            <div class="vault-kpi-card">
+              <div class="vault-kpi-title">Settled Volume</div>
+              <div id="vkpi-volume" class="vault-kpi-val" style="color:var(--ios-green);">₹0.00</div>
+            </div>
+            <div class="vault-kpi-card">
+              <div class="vault-kpi-title">All Payments</div>
+              <div id="vkpi-txns" class="vault-kpi-val">0</div>
+            </div>
+            <div class="vault-kpi-card">
+              <div class="vault-kpi-title">Ledger Entries</div>
+              <div id="vkpi-ledger" class="vault-kpi-val" style="color:var(--ios-blue);">0</div>
+            </div>
+            <div class="vault-kpi-card">
+              <div class="vault-kpi-title">Active Devices</div>
+              <div id="vkpi-devices" class="vault-kpi-val">0</div>
+            </div>
+            <div class="vault-kpi-card">
+              <div class="vault-kpi-title">Login Sessions</div>
+              <div id="vkpi-logins" class="vault-kpi-val">0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- View 2: Double-Entry Ledger -->
+        <div id="vtab-view-ledger" class="vault-view hidden">
+          <div style="font-size:0.75rem; color:var(--ios-text-secondary); margin-bottom:8px;">
+            Mathematical balance track: Each transaction records DEBIT & CREDIT entries.
+          </div>
+          <div id="vault-ledger-list" class="vault-data-scroll">
+            <p style="text-align:center; color:var(--ios-text-secondary); padding:20px;">Loading ledger entries...</p>
+          </div>
+        </div>
+
+        <!-- View 3: All Users -->
+        <div id="vtab-view-users" class="vault-view hidden">
+          <div style="font-size:0.75rem; color:var(--ios-text-secondary); margin-bottom:8px;">
+            User profiles with lifetime metrics, wallet balances and device links.
+          </div>
+          <div id="vault-users-list" class="vault-data-scroll">
+            <p style="text-align:center; color:var(--ios-text-secondary); padding:20px;">Loading registered users...</p>
+          </div>
+        </div>
+
+        <!-- View 4: Payments Audit -->
+        <div id="vtab-view-payments" class="vault-view hidden">
+          <div style="font-size:0.75rem; color:var(--ios-text-secondary); margin-bottom:8px;">
+            Immutable payment logs with cryptographic proof, devices and IP trails.
+          </div>
+          <div id="vault-payments-list" class="vault-data-scroll">
+            <p style="text-align:center; color:var(--ios-text-secondary); padding:20px;">Loading payments audit...</p>
+          </div>
+        </div>
+
+        <div style="margin-top:14px; display:flex; gap:8px;">
+          <button id="btn-vault-export-json" class="btn-primary" style="flex:1; font-size:0.82rem;">
+            📥 Download Audit Archive (JSON)
+          </button>
+          <button id="btn-vault-refresh" class="btn-secondary" style="width:auto; padding:10px 14px;">
+            🔄
+          </button>
+        </div>
       </div>
     </div>
 

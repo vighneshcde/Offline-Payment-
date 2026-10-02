@@ -137,6 +137,47 @@ router.post('/verify-otp', async (req, res) => {
       wallet = await db.get('SELECT * FROM wallets WHERE user_id = ?', [user.id]);
     }
 
+    // Extract client device and network metadata
+    const clientDeviceId = req.body.deviceId || req.headers['x-device-id'] || 'DEV-WEB-CLIENT';
+    const clientDeviceName = req.body.deviceName || req.headers['x-device-name'] || 'Web Terminal';
+    const clientIp = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
+    const userAgent = req.headers['user-agent'] || 'Unknown Agent';
+
+    // 1. Record in User Login History
+    await db.run(
+      `INSERT INTO user_login_history (user_id, phone, device_id, device_name, ip_address, user_agent, auth_method)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [user.id, user.phone, clientDeviceId, clientDeviceName, clientIp, userAgent, isMasterOtp ? 'MASTER_OTP' : 'SMS_OTP']
+    );
+
+    // 2. Update user last login timestamp & primary device
+    await db.run(
+      `UPDATE users SET last_login_at = datetime('now'), device_id = COALESCE(device_id, ?) WHERE id = ?`,
+      [clientDeviceId, user.id]
+    );
+
+    // 3. Register or touch device terminal
+    const existingDevice = await db.get('SELECT * FROM devices WHERE device_id = ?', [clientDeviceId]);
+    if (!existingDevice) {
+      const platform = /iPhone|iPad|Mac/i.test(userAgent) ? 'iOS' : (/Android/i.test(userAgent) ? 'Android' : 'Web');
+      await db.run(
+        `INSERT INTO devices (user_id, device_id, device_name, platform, is_primary, last_active_at)
+         VALUES (?, ?, ?, ?, 1, datetime('now'))`,
+        [user.id, clientDeviceId, clientDeviceName, platform]
+      );
+    } else {
+      await db.run(
+        `UPDATE devices SET last_active_at = datetime('now'), user_id = ? WHERE device_id = ?`,
+        [user.id, clientDeviceId]
+      );
+    }
+
+    // 4. Record Central Audit Log
+    await db.run(
+      `INSERT INTO audit_logs (action, phone, details) VALUES (?, ?, ?)`,
+      ['USER_VERIFIED_LOGIN', user.phone, JSON.stringify({ deviceId: clientDeviceId, ip: clientIp, authMethod: isMasterOtp ? 'MASTER_OTP' : 'SMS_OTP' })]
+    );
+
     // Generate JWT token (valid for 30 days)
     const token = jwt.sign(
       { id: user.id, phone: user.phone, role: user.role },
@@ -144,16 +185,24 @@ router.post('/verify-otp', async (req, res) => {
       { expiresIn: '30d' }
     );
 
+    // Fetch refreshed user record
+    const updatedUser = await db.get('SELECT * FROM users WHERE id = ?', [user.id]);
+
     res.json({
       success: true,
       message: 'Mobile number verified successfully!',
       token,
       user: {
-        id: user.id,
-        phone: user.phone,
-        name: user.name,
-        role: user.role,
-        hasPin: !!user.pin_hash
+        id: updatedUser.id,
+        phone: updatedUser.phone,
+        name: updatedUser.name,
+        role: updatedUser.role,
+        hasPin: !!updatedUser.pin_hash,
+        deviceId: updatedUser.device_id,
+        totalSpent: updatedUser.total_spent || 0,
+        totalReceived: updatedUser.total_received || 0,
+        txnCount: updatedUser.txn_count || 0,
+        lastLoginAt: updatedUser.last_login_at
       },
       wallet: {
         onlineBalance: wallet.online_balance,
@@ -173,15 +222,26 @@ router.post('/verify-otp', async (req, res) => {
  */
 router.get('/me', authenticateToken, async (req, res) => {
   try {
+    const user = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
     const wallet = await db.get('SELECT * FROM wallets WHERE user_id = ?', [req.user.id]);
+    const deviceCount = await db.get('SELECT COUNT(*) as count FROM devices WHERE user_id = ?', [req.user.id]);
+    const loginCount = await db.get('SELECT COUNT(*) as count FROM user_login_history WHERE user_id = ?', [req.user.id]);
+
     res.json({
       success: true,
       user: {
-        id: req.user.id,
-        phone: req.user.phone,
-        name: req.user.name,
-        role: req.user.role,
-        hasPin: !!req.user.pin_hash
+        id: user.id,
+        phone: user.phone,
+        name: user.name,
+        role: user.role,
+        hasPin: !!user.pin_hash,
+        deviceId: user.device_id,
+        totalSpent: user.total_spent || 0,
+        totalReceived: user.total_received || 0,
+        txnCount: user.txn_count || 0,
+        lastLoginAt: user.last_login_at,
+        deviceCount: deviceCount ? deviceCount.count : 0,
+        loginCount: loginCount ? loginCount.count : 0
       },
       wallet: {
         onlineBalance: wallet ? wallet.online_balance : 0,

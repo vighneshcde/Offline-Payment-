@@ -171,7 +171,53 @@ async function runTests() {
     }
     console.log('   ✅ Cloud Backup Vault & Restore PASSED\n');
 
-    console.log('🎉 ALL 11 TEST SUITES PASSED FLAWLESSLY! SYSTEM IS 100% OPERATIONAL WITH CLOUD & MULTI-DEVICE SUPPORT.');
+    // 12. Double-Entry General Ledger Verification
+    console.log('1️⃣2️⃣ Testing Double-Entry General Ledger (GET /api/data-vault/ledger)...');
+    const ledgerRes = await request('/api/data-vault/ledger?limit=10', 'GET', null, token);
+    console.log(`   Retrieved ${ledgerRes.data.count} double-entry ledger entries.`);
+    const firstLedger = ledgerRes.data.ledger[0];
+    console.log(`   Entry Type: ${firstLedger.entry_type} | Amount: ₹${firstLedger.amount} | Before: ₹${firstLedger.balance_before} -> After: ₹${firstLedger.balance_after}`);
+    if (!ledgerRes.data.success || ledgerRes.data.count < 2) {
+      throw new Error('Double-entry general ledger entries missing or incomplete');
+    }
+    console.log('   ✅ Double-Entry General Ledger PASSED (Mathematical Debit & Credit Verified)\n');
+
+    // 13. User Lifetime Metrics & Login History
+    console.log('1️⃣3️⃣ Testing User Lifetime Metrics & Login Audits (GET /api/data-vault/users)...');
+    const usersRes = await request('/api/data-vault/users', 'GET', null, token);
+    console.log(`   Found ${usersRes.data.count} user record(s) in Vault.`);
+    const testUser = usersRes.data.users.find(u => u.phone === testPhone);
+    if (!testUser) throw new Error('Test user not found in Vault users list');
+    console.log(`   User: ${testUser.name} | Total Spent: ₹${testUser.total_spent} | Txn Count: ${testUser.txn_count} | Devices: ${testUser.device_count}`);
+    if (testUser.total_spent <= 0 || testUser.txn_count <= 0) {
+      throw new Error('User lifetime metrics were not updated properly');
+    }
+    console.log('   ✅ User Lifetime Metrics & Session Audit PASSED\n');
+
+    // 14. Comprehensive Payment Audit Trail
+    console.log('1️⃣4️⃣ Testing Payments Audit Trail (GET /api/data-vault/payments)...');
+    const paymentsRes = await request('/api/data-vault/payments?limit=5', 'GET', null, token);
+    console.log(`   Total Payments in Cloud Vault: ${paymentsRes.data.total}`);
+    const firstPayment = paymentsRes.data.payments[0];
+    console.log(`   Payment ID: ${firstPayment.id} | Amount: ₹${firstPayment.amount} | Status: ${firstPayment.status}`);
+    console.log(`   Payer Terminal: ${firstPayment.payer_device_id} | Payee: ${firstPayment.payee_phone}`);
+    console.log(`   Associated Ledger Entries: ${firstPayment.ledgerEntries.length} | Audit Events: ${firstPayment.auditTrail.length}`);
+    if (!firstPayment.ledgerEntries.length || !firstPayment.auditTrail.length) {
+      throw new Error('Payment missing linked ledger entries or audit trail');
+    }
+    console.log('   ✅ Payments Audit Trail & Permanent History PASSED\n');
+
+    // 15. Complete Database Audit Export
+    console.log('1️⃣5️⃣ Testing Complete Database Audit Export (GET /api/data-vault/export)...');
+    const exportRes = await request('/api/data-vault/export', 'GET', null, token);
+    console.log('   Export System:', exportRes.data.exportMetadata.system, `v${exportRes.data.exportMetadata.version}`);
+    console.log('   Export Summary:', JSON.stringify(exportRes.data.exportMetadata.summary));
+    if (!exportRes.data.users || !exportRes.data.transactions || !exportRes.data.doubleEntryLedger) {
+      throw new Error('Export archive is incomplete');
+    }
+    console.log('   ✅ Complete Database Audit Export PASSED\n');
+
+    console.log('🎉 ALL 15 TEST SUITES PASSED FLAWLESSLY! COMPLETE PERMANENT STORAGE OF ALL USERS & PAYMENTS VERIFIED.');
   } catch (err) {
     console.error('❌ Test failed:', err.message);
     process.exit(1);

@@ -280,6 +280,14 @@ function updateUserHeader() {
     document.getElementById('settings-device-name').textContent = walletEngine.getDeviceName();
     document.getElementById('settings-device-id').textContent = walletEngine.getDeviceId();
 
+    // Lifetime user stats in profile card
+    const spentEl = document.getElementById('settings-total-spent');
+    const recEl = document.getElementById('settings-total-received');
+    const countEl = document.getElementById('settings-txn-count');
+    if (spentEl) spentEl.textContent = `₹${parseFloat(appState.user.totalSpent || 0).toFixed(2)}`;
+    if (recEl) recEl.textContent = `₹${parseFloat(appState.user.totalReceived || 0).toFixed(2)}`;
+    if (countEl) countEl.textContent = (appState.user.txnCount || 0).toString();
+
     // Receive Tab
     document.getElementById('qr-merchant-name').textContent = appState.user.name;
     document.getElementById('qr-merchant-phone').textContent = appState.user.phone;
@@ -682,7 +690,9 @@ async function handleOnboardingVerify() {
         phone: appState.pendingVerificationPhone,
         otpCode,
         name: appState.pendingVerificationName,
-        role: appState.selectedRole
+        role: appState.selectedRole,
+        deviceId: walletEngine.getDeviceId(),
+        deviceName: walletEngine.getDeviceName()
       })
     });
     const data = await res.json();
@@ -890,6 +900,34 @@ function initUIEvents() {
   document.getElementById('row-rename-device').addEventListener('click', handleRenameDevice);
   document.getElementById('row-change-pin').addEventListener('click', handleChangePin);
   document.getElementById('row-logout').addEventListener('click', handleLogout);
+
+  // Data Vault & Central Audit Ledger
+  const rowVault = document.getElementById('row-open-data-vault');
+  if (rowVault) rowVault.addEventListener('click', openDataVaultModal);
+
+  const rowExportVault = document.getElementById('row-export-vault');
+  if (rowExportVault) rowExportVault.addEventListener('click', handleExportDatabaseAudit);
+
+  const btnCloseVault = document.getElementById('btn-close-data-vault');
+  if (btnCloseVault) btnCloseVault.addEventListener('click', closeDataVaultModal);
+
+  const btnExportJson = document.getElementById('btn-vault-export-json');
+  if (btnExportJson) btnExportJson.addEventListener('click', handleExportDatabaseAudit);
+
+  const btnVaultRefresh = document.getElementById('btn-vault-refresh');
+  if (btnVaultRefresh) btnVaultRefresh.addEventListener('click', refreshActiveVaultTab);
+
+  // Vault Tab Navigation
+  const vaultTabs = document.querySelectorAll('.vault-tab-btn');
+  vaultTabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      triggerHaptic('light');
+      vaultTabs.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const targetVTab = btn.getAttribute('data-vtab');
+      switchVaultTab(targetVTab);
+    });
+  });
 }
 
 /**
@@ -1066,6 +1104,17 @@ async function refreshDashboard() {
         document.getElementById('display-online-balance').textContent = data.onlineBalance.toFixed(2);
         const total = offlineBal + data.onlineBalance;
         document.getElementById('display-total-balance').textContent = total.toFixed(2);
+      }
+
+      // Refresh user lifetime metrics
+      const profileRes = await fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${appState.token}` }
+      });
+      const profileData = await profileRes.json();
+      if (profileData.success && profileData.user) {
+        appState.user = { ...appState.user, ...profileData.user };
+        walletEngine.setUser(appState.user);
+        updateUserHeader();
       }
     } catch (e) {
       console.warn('Could not fetch server wallet balance:', e);
@@ -1455,6 +1504,20 @@ function showReceiptModal(txn) {
   document.getElementById('receipt-time').textContent = formatDate(txn.offline_timestamp || txn.created_at);
   document.getElementById('receipt-sig').textContent = (txn.signature || '').slice(0, 24) + '...';
 
+  const isSent = txn.type === 'SENT';
+  const impactEl = document.getElementById('receipt-ledger-impact');
+  if (impactEl) {
+    impactEl.textContent = isSent 
+      ? `Offline Pocket: -₹${Number(txn.amount).toFixed(2)} (DEBIT)` 
+      : `Online Vault: +₹${Number(txn.amount).toFixed(2)} (CREDIT)`;
+    impactEl.style.color = isSent ? 'var(--ios-red)' : 'var(--ios-green)';
+  }
+
+  const devEl = document.getElementById('receipt-device-info');
+  if (devEl) {
+    devEl.textContent = txn.payer_device_id || txn.payerDeviceId || walletEngine.getDeviceId();
+  }
+
   document.getElementById('receipt-modal').classList.add('active');
 }
 
@@ -1716,3 +1779,186 @@ function exportTransactionStatement() {
   triggerHaptic('success');
   expandDynamicIsland('📥', 'Statement Exported', `${history.length} records saved to CSV`, 3000);
 }
+
+/**
+ * 22. DATA VAULT & CENTRAL AUDIT LEDGER CONTROLLER
+ */
+let currentVaultTab = 'kpi';
+
+function openDataVaultModal() {
+  triggerHaptic('medium');
+  document.getElementById('modal-data-vault').classList.add('active');
+  switchVaultTab(currentVaultTab);
+}
+
+function closeDataVaultModal() {
+  document.getElementById('modal-data-vault').classList.remove('active');
+}
+
+function switchVaultTab(tabKey) {
+  currentVaultTab = tabKey;
+  // Update tab buttons
+  document.querySelectorAll('.vault-tab-btn').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-vtab') === tabKey);
+  });
+
+  // Hide all views
+  document.querySelectorAll('.vault-view').forEach(v => v.classList.add('hidden'));
+
+  const targetView = document.getElementById(`vtab-view-${tabKey}`);
+  if (targetView) targetView.classList.remove('hidden');
+
+  if (tabKey === 'kpi') {
+    loadVaultOverview();
+  } else if (tabKey === 'ledger') {
+    loadVaultLedger();
+  } else if (tabKey === 'users') {
+    loadVaultUsers();
+  } else if (tabKey === 'payments') {
+    loadVaultPayments();
+  }
+}
+
+function refreshActiveVaultTab() {
+  triggerHaptic('light');
+  switchVaultTab(currentVaultTab);
+}
+
+async function loadVaultOverview() {
+  try {
+    const res = await fetch('/api/data-vault/overview');
+    const data = await res.json();
+    if (data.success && data.stats) {
+      document.getElementById('vkpi-users').textContent = data.stats.totalUsers;
+      document.getElementById('vkpi-volume').textContent = `₹${data.stats.totalVolumeSettled.toFixed(2)}`;
+      document.getElementById('vkpi-txns').textContent = data.stats.totalTransactions;
+      document.getElementById('vkpi-ledger').textContent = data.stats.totalLedgerEntries;
+      document.getElementById('vkpi-devices').textContent = data.stats.totalRegisteredDevices;
+      document.getElementById('vkpi-logins').textContent = data.stats.totalLoginSessions;
+    }
+  } catch (err) {
+    console.warn('Vault overview fetch error:', err);
+  }
+}
+
+async function loadVaultLedger() {
+  const container = document.getElementById('vault-ledger-list');
+  container.innerHTML = '<p style="text-align:center; color:var(--ios-text-secondary); padding:20px;">Fetching ledger entries...</p>';
+  try {
+    const res = await fetch('/api/data-vault/ledger?limit=100');
+    const data = await res.json();
+    if (data.success && data.ledger && data.ledger.length) {
+      container.innerHTML = data.ledger.map(e => `
+        <div class="ledger-row-card">
+          <div class="ledger-row-header">
+            <span class="${e.entry_type === 'DEBIT' ? 'ledger-tag-debit' : 'ledger-tag-credit'}">${e.entry_type} (${e.pocket})</span>
+            <span style="font-weight:700; font-size:0.85rem; color:${e.entry_type === 'DEBIT' ? 'var(--ios-red)' : 'var(--ios-green)'};">
+              ${e.entry_type === 'DEBIT' ? '-' : '+'}₹${Number(e.amount).toFixed(2)}
+            </span>
+          </div>
+          <div style="font-weight:600; color:var(--ios-text-primary);">${e.description || 'Wallet Transaction'}</div>
+          <div style="font-size:0.7rem; color:var(--ios-text-secondary); margin-top:2px;">User: ${e.user_name || 'User'} (${e.user_phone || 'N/A'})</div>
+          <div class="ledger-balance-track">
+            <span>Before: ₹${Number(e.balance_before || 0).toFixed(2)}</span>
+            <span>After: ₹${Number(e.balance_after || 0).toFixed(2)}</span>
+          </div>
+          <div style="font-size:0.65rem; color:#8e8e93; margin-top:4px; font-family:monospace;">Txn: ${e.txn_id} • ${formatDate(e.created_at)}</div>
+        </div>
+      `).join('');
+    } else {
+      container.innerHTML = '<p style="text-align:center; color:var(--ios-text-secondary); padding:20px;">No double-entry ledger records found yet.</p>';
+    }
+  } catch (err) {
+    container.innerHTML = `<p style="text-align:center; color:var(--ios-red); padding:20px;">Error loading ledger: ${err.message}</p>`;
+  }
+}
+
+async function loadVaultUsers() {
+  const container = document.getElementById('vault-users-list');
+  container.innerHTML = '<p style="text-align:center; color:var(--ios-text-secondary); padding:20px;">Fetching registered users...</p>';
+  try {
+    const res = await fetch('/api/data-vault/users');
+    const data = await res.json();
+    if (data.success && data.users && data.users.length) {
+      container.innerHTML = data.users.map(u => `
+        <div class="user-vault-card">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <b style="color:var(--ios-text-primary); font-size:0.88rem;">${u.name}</b>
+              <div style="font-size:0.74rem; color:var(--ios-text-secondary);">${u.phone}</div>
+            </div>
+            <span style="font-size:0.7rem; padding:2px 8px; border-radius:10px; background:rgba(0,122,255,0.15); color:var(--ios-blue); font-weight:700;">
+              ${u.role.toUpperCase()}
+            </span>
+          </div>
+          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:6px; margin-top:8px; font-size:0.7rem;">
+            <div style="background:var(--ios-card-secondary); padding:6px; border-radius:8px;">
+              <span style="color:var(--ios-text-secondary);">Spent</span>
+              <div style="font-weight:700; color:var(--ios-text-primary);">₹${u.total_spent.toFixed(2)}</div>
+            </div>
+            <div style="background:var(--ios-card-secondary); padding:6px; border-radius:8px;">
+              <span style="color:var(--ios-text-secondary);">Received</span>
+              <div style="font-weight:700; color:var(--ios-green);">₹${u.total_received.toFixed(2)}</div>
+            </div>
+            <div style="background:var(--ios-card-secondary); padding:6px; border-radius:8px;">
+              <span style="color:var(--ios-text-secondary);">Txns</span>
+              <div style="font-weight:700; color:var(--ios-blue);">${u.txn_count || 0}</div>
+            </div>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:var(--ios-text-secondary); margin-top:6px; padding-top:4px; border-top:1px dashed var(--ios-border);">
+            <span>Bank: ₹${u.online_balance.toFixed(2)} • Offline: ₹${u.offline_allocated_balance.toFixed(2)}</span>
+            <span>📱 ${u.device_count || 1} Device(s)</span>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      container.innerHTML = '<p style="text-align:center; color:var(--ios-text-secondary); padding:20px;">No registered users found.</p>';
+    }
+  } catch (err) {
+    container.innerHTML = `<p style="text-align:center; color:var(--ios-red); padding:20px;">Error loading users: ${err.message}</p>`;
+  }
+}
+
+async function loadVaultPayments() {
+  const container = document.getElementById('vault-payments-list');
+  container.innerHTML = '<p style="text-align:center; color:var(--ios-text-secondary); padding:20px;">Fetching payments audit...</p>';
+  try {
+    const res = await fetch('/api/data-vault/payments?limit=50');
+    const data = await res.json();
+    if (data.success && data.payments && data.payments.length) {
+      container.innerHTML = data.payments.map(p => `
+        <div class="user-vault-card">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <b style="color:var(--ios-text-primary); font-size:0.85rem;">₹${Number(p.amount).toFixed(2)}</b>
+              <span style="font-size:0.7rem; color:var(--ios-text-secondary); margin-left:6px;">${p.mode}</span>
+            </div>
+            <span style="font-size:0.68rem; padding:2px 8px; border-radius:10px; background:rgba(52,199,89,0.15); color:var(--ios-green); font-weight:700;">
+              ${p.status}
+            </span>
+          </div>
+          <div style="font-size:0.73rem; margin-top:5px; color:var(--ios-text-secondary);">
+            <div><b style="color:var(--ios-text-primary);">From:</b> ${p.payer_name || 'Payer'} (${p.payer_phone})</div>
+            <div><b style="color:var(--ios-text-primary);">To:</b> ${p.payee_name || 'Payee'} (${p.payee_phone})</div>
+          </div>
+          <div style="font-size:0.66rem; color:#8e8e93; font-family:monospace; margin-top:6px; display:flex; flex-direction:column; gap:2px;">
+            <div>ID: ${p.id}</div>
+            <div>Payer Terminal: ${p.payer_device_id || 'UNKNOWN'}</div>
+            <div>Sync: ${formatDate(p.synced_at || p.created_at)}</div>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      container.innerHTML = '<p style="text-align:center; color:var(--ios-text-secondary); padding:20px;">No payments recorded in vault yet.</p>';
+    }
+  } catch (err) {
+    container.innerHTML = `<p style="text-align:center; color:var(--ios-red); padding:20px;">Error loading payments: ${err.message}</p>`;
+  }
+}
+
+function handleExportDatabaseAudit() {
+  triggerHaptic('success');
+  expandDynamicIsland('💾', 'Exporting Database', 'Generating full audit archive...', 2500);
+  window.open('/api/data-vault/export', '_blank');
+}
+
