@@ -10,9 +10,4 @@ services:
         value: production
       - key: JWT_SECRET
         generateValue: true
-      - key: PORT
-        value: 3000
-    disk:
-      name: sqlite-data
-      mountPath: /opt/render/project/src/server/data
-      sizeGB: 1
+
