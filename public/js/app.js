@@ -482,24 +482,31 @@ function setAuthMode(mode) {
   const headerTitle = document.getElementById('ob-header-title');
   const headerSub = document.getElementById('ob-header-sub');
   const sendBtn = document.getElementById('btn-ob-send-code');
+  const nameLabel = document.getElementById('ob-name-label');
+  const nameInput = document.getElementById('ob-name');
+
+  // Always keep personal info (Name & Phone) visible 1st
+  if (nameGroup) nameGroup.style.display = 'block';
 
   if (mode === 'login') {
     if (btnLoginMode) btnLoginMode.classList.add('active');
     if (btnSignupMode) btnSignupMode.classList.remove('active');
-    if (nameGroup) nameGroup.style.display = 'none';
     if (bankSection) bankSection.style.display = 'none';
     if (roleGroup) roleGroup.style.display = 'none';
     if (headerTitle) headerTitle.textContent = 'Welcome Back';
-    if (headerSub) headerSub.textContent = 'Enter your registered mobile phone number to log in.';
+    if (headerSub) headerSub.textContent = 'Enter your personal info (name & mobile number) to access your wallet.';
+    if (nameLabel) nameLabel.textContent = 'Full Name / Personal Details';
+    if (nameInput) nameInput.placeholder = 'e.g. Alex Sharma (Optional for existing login)';
     if (sendBtn) sendBtn.textContent = '📲 Send Login Code';
   } else {
     if (btnSignupMode) btnSignupMode.classList.add('active');
     if (btnLoginMode) btnLoginMode.classList.remove('active');
-    if (nameGroup) nameGroup.style.display = 'block';
     if (bankSection) bankSection.style.display = 'block';
     if (roleGroup) roleGroup.style.display = 'block';
     if (headerTitle) headerTitle.textContent = 'Setup Your Profile';
-    if (headerSub) headerSub.textContent = 'Create your profile and link your bank account to enable offline payments.';
+    if (headerSub) headerSub.textContent = 'Add your personal info and bank details to create your wallet.';
+    if (nameLabel) nameLabel.textContent = 'Full Name * (Required)';
+    if (nameInput) nameInput.placeholder = 'e.g. Alex Sharma';
     if (sendBtn) sendBtn.textContent = '✨ Create Profile & Send Code';
   }
 }
@@ -518,6 +525,23 @@ function initOnboardingEvents() {
     btnSignupMode.addEventListener('click', () => {
       setAuthMode('signup');
       triggerHaptic('light');
+    });
+  }
+
+  // Bank details quick toggle button
+  const btnToggleExtra = document.getElementById('btn-toggle-extra-info');
+  if (btnToggleExtra) {
+    btnToggleExtra.addEventListener('click', () => {
+      triggerHaptic('light');
+      const bankSec = document.getElementById('ob-bank-section');
+      const roleGrp = document.getElementById('ob-role-group');
+      const isVisible = bankSec && bankSec.style.display !== 'none';
+      if (bankSec) bankSec.style.display = isVisible ? 'none' : 'block';
+      if (roleGrp) roleGrp.style.display = isVisible ? 'none' : 'block';
+      const icon = document.getElementById('btn-toggle-extra-info-icon');
+      const text = document.getElementById('btn-toggle-extra-info-text');
+      if (icon) icon.textContent = isVisible ? '➕' : '➖';
+      if (text) text.textContent = isVisible ? 'Add Bank Details & Role (Optional)' : 'Hide Bank Details';
     });
   }
 
@@ -1091,6 +1115,8 @@ function initUIEvents() {
   document.getElementById('header-avatar').addEventListener('click', () => switchTab('tab-settings', 4));
 
   // Quick Action Buttons
+  const actDial = document.getElementById('act-dial');
+  if (actDial) actDial.addEventListener('click', openDialModal);
   document.getElementById('act-scan').addEventListener('click', () => switchTab('tab-scan', 1));
   document.getElementById('act-receive').addEventListener('click', () => switchTab('tab-receive', 2));
   document.getElementById('act-voucher').addEventListener('click', () => switchTab('tab-voucher', 3));
@@ -1196,6 +1222,34 @@ function initUIEvents() {
       renderPhoneContacts(e.target.value);
     });
   }
+
+  // Phone Dialer Modal Events
+  const btnOpenDialpad = document.getElementById('btn-open-dialpad');
+  if (btnOpenDialpad) {
+    btnOpenDialpad.addEventListener('click', openDialModal);
+  }
+  const btnCloseDial = document.getElementById('btn-close-dial-modal');
+  if (btnCloseDial) {
+    btnCloseDial.addEventListener('click', closeDialModal);
+  }
+  const btnDialClear = document.getElementById('btn-dial-clear');
+  if (btnDialClear) {
+    btnDialClear.addEventListener('click', () => {
+      triggerHaptic('light');
+      const input = document.getElementById('dial-phone-input');
+      if (input) input.value = input.value.slice(0, -1);
+    });
+  }
+  const btnDialProceed = document.getElementById('btn-dial-proceed');
+  if (btnDialProceed) {
+    btnDialProceed.addEventListener('click', handleDialProceed);
+  }
+  document.querySelectorAll('.dial-key').forEach(key => {
+    key.addEventListener('click', () => {
+      const digit = key.getAttribute('data-digit');
+      if (digit) handleDialKeypadPress(digit);
+    });
+  });
 
   // Modals Open/Close
   document.getElementById('btn-open-allocate').addEventListener('click', () => {
@@ -1438,17 +1492,17 @@ function renderQuickContacts() {
   }
 }
 
-function initiatePaymentToContact(phone, name) {
+function initiatePaymentToContact(phone, name, presetAmount = '') {
   appState.currentScanPayload = {
     payeePhone: phone,
     payeeName: name,
-    amount: ''
+    amount: presetAmount ? presetAmount.toString() : ''
   };
 
   document.getElementById('confirm-payee-name').textContent = name;
   document.getElementById('confirm-payee-phone').textContent = phone;
-  document.getElementById('confirm-device-tag').textContent = 'Beneficiary Quick-Pay';
-  document.getElementById('confirm-amount').value = '';
+  document.getElementById('confirm-device-tag').textContent = 'Direct Dial / Beneficiary';
+  document.getElementById('confirm-amount').value = presetAmount || '';
   document.getElementById('confirm-avail-balance').textContent = walletEngine.getOfflineBalance().toFixed(2);
 
   document.getElementById('payment-confirm-modal').classList.add('active');
@@ -1487,6 +1541,82 @@ function handleSaveContact() {
       body: JSON.stringify({ name, phone, avatarColor: randomColor })
     }).catch(e => console.warn('Cloud contact sync deferred'));
   }
+}
+
+/**
+ * PHONE DIALER & DIRECT PAY CONTROLLER
+ */
+function openDialModal() {
+  triggerHaptic('light');
+  const modal = document.getElementById('dial-modal');
+  if (modal) {
+    modal.classList.add('active');
+    const input = document.getElementById('dial-phone-input');
+    if (input) setTimeout(() => input.focus(), 150);
+  }
+}
+
+function closeDialModal() {
+  triggerHaptic('light');
+  const modal = document.getElementById('dial-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+function handleDialKeypadPress(digit) {
+  triggerHaptic('light');
+  const phoneInput = document.getElementById('dial-phone-input');
+  if (!phoneInput) return;
+
+  if (digit === 'DEL') {
+    phoneInput.value = phoneInput.value.slice(0, -1);
+  } else {
+    phoneInput.value += digit;
+  }
+}
+
+function handleDialProceed() {
+  const phoneInput = document.getElementById('dial-phone-input');
+  const nameInput = document.getElementById('dial-name-input');
+  const amtInput = document.getElementById('dial-amount-input');
+  const saveContactCb = document.getElementById('dial-save-contact');
+
+  let rawPhone = phoneInput ? phoneInput.value.trim().replace(/\s+/g, '') : '';
+  const name = nameInput ? nameInput.value.trim() : '';
+  const amt = amtInput ? parseFloat(amtInput.value) : 0;
+
+  if (!rawPhone || rawPhone.length < 5) {
+    alert('Please enter a valid mobile number');
+    return;
+  }
+
+  // Auto-format Indian 10-digit phone with +91 if needed
+  if (!rawPhone.startsWith('+')) {
+    if (rawPhone.length === 10) rawPhone = `+91${rawPhone}`;
+    else if (rawPhone.length === 12 && rawPhone.startsWith('91')) rawPhone = `+${rawPhone}`;
+  }
+
+  const displayName = name || `User (${rawPhone.slice(-4)})`;
+
+  // If save contact is checked, store in contact list for offline payments
+  if (saveContactCb && saveContactCb.checked) {
+    const colors = ['#007aff', '#34c759', '#ff9500', '#af52de', '#ff2d55', '#00c7be'];
+    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+    walletEngine.addContact({ name: displayName, phone: rawPhone, color: randomColor });
+    renderQuickContacts();
+    renderPhoneContacts();
+    if (isNetworkOnline() && appState.token) {
+      fetch('/api/cloud/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${appState.token}` },
+        body: JSON.stringify({ name: displayName, phone: rawPhone, avatarColor: randomColor })
+      }).catch(e => console.warn('Cloud contact sync deferred'));
+    }
+  }
+
+  closeDialModal();
+  triggerHaptic('medium');
+
+  initiatePaymentToContact(rawPhone, displayName, amt > 0 ? amt : '');
 }
 
 /**
@@ -2124,6 +2254,8 @@ async function executeOfflinePayment() {
 async function handleGenerateVoucher() {
   const amount = parseFloat(document.getElementById('voucher-amount').value);
   const payeePhone = document.getElementById('voucher-payee-phone').value.trim() || 'Any Merchant';
+  const payeeNameInput = document.getElementById('voucher-payee-name')?.value.trim();
+  const payeeName = payeeNameInput || (payeePhone === 'Any Merchant' ? 'Any Merchant' : 'Direct Merchant');
   const pin = document.getElementById('voucher-pin').value;
 
   if (isNaN(amount) || amount <= 0) {
@@ -2139,7 +2271,7 @@ async function handleGenerateVoucher() {
   try {
     const voucher = await walletEngine.createOfflinePaymentVoucher({
       payeePhone,
-      payeeName: payeePhone === 'Any Merchant' ? 'Any Merchant' : 'Direct Merchant',
+      payeeName,
       amount,
       mode: 'OFFLINE_VOUCHER_TOKEN'
     });

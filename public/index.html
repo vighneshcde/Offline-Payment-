@@ -36,13 +36,17 @@
         </div>
 
         <h2 id="ob-header-title" style="font-size:1.35rem; font-weight:800; color:var(--ios-text-primary); letter-spacing:-0.5px;">Welcome Back</h2>
-        <p id="ob-header-sub" style="font-size:0.8rem; color:var(--ios-text-secondary); margin-top:4px; margin-bottom:16px;">
-          Enter your registered mobile phone number to log in.
+        <p id="ob-header-sub" style="font-size:0.8rem; color:var(--ios-text-secondary); margin-top:4px; margin-bottom:14px;">
+          Enter your personal info (name & mobile number) to access your wallet.
         </p>
 
-        <div class="input-group" id="ob-name-group" style="text-align:left; display:none;">
-          <label class="input-label">Full Name</label>
-          <input type="text" id="ob-name" class="text-input" placeholder="e.g. Alex Sharma">
+        <!-- Personal Info 1st (Full Name & Mobile Number) -->
+        <div class="input-group" id="ob-name-group" style="text-align:left;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <label class="input-label" id="ob-name-label" style="margin-bottom:0;">Full Name / Account Name</label>
+            <span id="ob-name-badge" style="font-size:0.68rem; background:rgba(0,122,255,0.12); color:var(--ios-blue); padding:1px 6px; border-radius:6px; font-weight:600;">Personal Info 1st</span>
+          </div>
+          <input type="text" id="ob-name" class="text-input" placeholder="e.g. Alex Sharma (Your Name)">
         </div>
 
         <div class="input-group" style="text-align:left;">
@@ -59,7 +63,15 @@
           </div>
         </div>
 
-        <!-- Bank Details Section (Shown in Create Profile mode) -->
+        <!-- Optional Bank Details Quick Toggle -->
+        <div style="margin-bottom:12px; text-align:left;">
+          <button type="button" id="btn-toggle-extra-info" style="background:none; border:none; color:var(--ios-blue); font-size:0.76rem; font-weight:600; cursor:pointer; padding:0; display:flex; align-items:center; gap:4px;">
+            <span id="btn-toggle-extra-info-icon">➕</span>
+            <span id="btn-toggle-extra-info-text">Add Bank Details & Role (Optional)</span>
+          </button>
+        </div>
+
+        <!-- Bank Details Section (Shown in Create Profile mode or when expanded) -->
         <div id="ob-bank-section" style="background:var(--ios-card-secondary); border:1px solid var(--ios-border); border-radius:14px; padding:12px 14px; margin-bottom:14px; text-align:left; display:none;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
             <span style="font-size:0.8rem; font-weight:700; color:var(--ios-text-primary);">🏦 Bank Account Details</span>
@@ -316,8 +328,11 @@
               <p style="font-size:0.72rem; color:var(--ios-text-secondary); margin-top:1px;">Send money offline directly</p>
             </div>
             <div style="display:flex; gap:6px;">
+              <button id="btn-open-dialpad" class="btn-primary" style="width:auto; padding:5px 10px; font-size:0.72rem; background:linear-gradient(135deg, #007aff, #34c759); font-weight:700;">
+                📞 Dial & Pay
+              </button>
               <button id="btn-import-phone-contacts" class="btn-primary" style="width:auto; padding:5px 10px; font-size:0.72rem;">
-                📲 Device Contacts
+                📲 Contacts
               </button>
               <button id="btn-add-contact-modal" class="btn-secondary" style="width:auto; padding:5px 10px; font-size:0.72rem;">
                 + Add
@@ -343,7 +358,11 @@
         </div>
 
         <!-- Quick Actions Grid -->
-        <div class="action-grid">
+        <div class="action-grid" style="grid-template-columns: repeat(5, 1fr);">
+          <button class="action-btn" id="act-dial">
+            <div class="action-icon dial">📞</div>
+            <span>Dial Pay</span>
+          </button>
           <button class="action-btn" id="act-scan">
             <div class="action-icon scan">📷</div>
             <span>Scan QR</span>
@@ -473,6 +492,11 @@
           <div class="input-group">
             <label class="input-label">Recipient Phone or Device ID (Optional)</label>
             <input type="text" id="voucher-payee-phone" class="text-input" placeholder="e.g. 9876543210 or leave blank for Any">
+          </div>
+
+          <div class="input-group">
+            <label class="input-label">Recipient Name / Personal Info (Optional)</label>
+            <input type="text" id="voucher-payee-name" class="text-input" placeholder="e.g. Rahul Sharma or Store Name">
           </div>
 
           <div class="input-group">
@@ -924,6 +948,69 @@
 
         <button id="btn-save-contact" class="btn-primary mt-2">
           Save Contact
+        </button>
+      </div>
+    </div>
+
+    <!-- 4B. DIAL NUMBER & PAY MODAL -->
+    <div id="dial-modal" class="modal-overlay">
+      <div class="modal-content">
+        <div class="sheet-grabber"></div>
+        <div class="modal-header">
+          <h3>📞 Dial Number & Pay</h3>
+          <button class="close-btn" id="btn-close-dial-modal">&times;</button>
+        </div>
+        <p style="font-size:0.78rem; color:var(--ios-text-secondary); margin-top:-4px; margin-bottom:12px;">
+          Dial or enter mobile number to pay directly with offline or online balance.
+        </p>
+
+        <!-- Personal Info 1st (Mobile Number & Recipient Name) -->
+        <div class="input-group" style="margin-bottom:8px;">
+          <label class="input-label" style="font-size:0.75rem;">Recipient Mobile Number</label>
+          <div style="display:flex; gap:6px;">
+            <input type="tel" id="dial-phone-input" class="text-input" placeholder="+91 9876543210" style="font-size:1.15rem; font-weight:700; letter-spacing:1px; flex:1;">
+            <button type="button" id="btn-dial-clear" class="btn-secondary" style="width:auto; padding:0 12px; font-size:0.85rem; border-radius:12px;">⌫</button>
+          </div>
+        </div>
+
+        <div class="input-group" style="margin-bottom:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <label class="input-label" style="font-size:0.75rem; margin-bottom:0;">Recipient Name / Personal Info</label>
+            <span style="font-size:0.68rem; color:var(--ios-blue); font-weight:600;">Personal Info 1st</span>
+          </div>
+          <input type="text" id="dial-name-input" class="text-input" placeholder="e.g. Rahul Sharma or Store Name">
+        </div>
+
+        <div class="input-group" style="margin-bottom:10px;">
+          <label class="input-label" style="font-size:0.75rem;">Payment Amount (₹)</label>
+          <input type="number" id="dial-amount-input" class="text-input" placeholder="Enter amount to pay" min="1">
+        </div>
+
+        <!-- Phone Dialer Keypad -->
+        <div class="dialer-keypad">
+          <button type="button" class="dial-key" data-digit="1">1<span class="dial-key-sub">&nbsp;</span></button>
+          <button type="button" class="dial-key" data-digit="2">2<span class="dial-key-sub">ABC</span></button>
+          <button type="button" class="dial-key" data-digit="3">3<span class="dial-key-sub">DEF</span></button>
+          <button type="button" class="dial-key" data-digit="4">4<span class="dial-key-sub">GHI</span></button>
+          <button type="button" class="dial-key" data-digit="5">5<span class="dial-key-sub">JKL</span></button>
+          <button type="button" class="dial-key" data-digit="6">6<span class="dial-key-sub">MNO</span></button>
+          <button type="button" class="dial-key" data-digit="7">7<span class="dial-key-sub">PQRS</span></button>
+          <button type="button" class="dial-key" data-digit="8">8<span class="dial-key-sub">TUV</span></button>
+          <button type="button" class="dial-key" data-digit="9">9<span class="dial-key-sub">WXYZ</span></button>
+          <button type="button" class="dial-key" data-digit="+">+<span class="dial-key-sub">INTL</span></button>
+          <button type="button" class="dial-key" data-digit="0">0<span class="dial-key-sub">+</span></button>
+          <button type="button" class="dial-key" data-digit="DEL">⌫<span class="dial-key-sub">DEL</span></button>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px; margin:10px 0;">
+          <input type="checkbox" id="dial-save-contact" checked style="width:16px; height:16px; accent-color:var(--ios-blue);">
+          <label for="dial-save-contact" style="font-size:0.75rem; color:var(--ios-text-secondary); cursor:pointer;">
+            Save to Phone Contacts for quick offline payments
+          </label>
+        </div>
+
+        <button id="btn-dial-proceed" class="btn-primary mt-2">
+          ⚡ Proceed to Pay
         </button>
       </div>
     </div>

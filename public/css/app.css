@@ -613,6 +613,7 @@ main.content-area {
   transition: transform 0.2s var(--spring-bounce);
 }
 
+.action-icon.dial { background: linear-gradient(135deg, #007aff, #34c759); color: #fff; }
 .action-icon.scan { background: linear-gradient(135deg, var(--ios-green), #248a3d); color: #fff; }
 .action-icon.receive { background: linear-gradient(135deg, var(--ios-blue), #0056b3); color: #fff; }
 .action-icon.pay-qr { background: linear-gradient(135deg, var(--ios-purple), #7e22ce); color: #fff; }
@@ -1668,5 +1669,50 @@ nav.bottom-nav {
   padding: 12px;
   text-align: center;
 }
+
+/* Phone Keypad & Dial & Pay Modal */
+.dialer-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  max-width: 260px;
+  margin: 12px auto;
+}
+
+.dial-key {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid var(--ios-border);
+  background: var(--ios-card);
+  color: var(--ios-text-primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s var(--spring-bounce);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  user-select: none;
+  touch-action: manipulation;
+  padding: 0;
+  line-height: 1;
+}
+
+.dial-key:active {
+  transform: scale(0.92);
+  background: var(--ios-card-hover);
+  border-color: var(--ios-blue);
+}
+
+.dial-key-sub {
+  font-size: 0.52rem;
+  letter-spacing: 0.8px;
+  color: var(--ios-text-secondary);
+  font-weight: 600;
+  margin-top: 2px;
+}
+
 
 

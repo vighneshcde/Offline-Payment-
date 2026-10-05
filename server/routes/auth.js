@@ -130,7 +130,7 @@ router.post('/verify-otp', async (req, res) => {
       // Update name and bank details if provided
       const updates = [];
       const params = [];
-      if (name && name.trim() && user.name.startsWith('User-')) {
+      if (name && name.trim()) {
         updates.push('name = ?');
         params.push(name.trim());
       }
@@ -142,6 +142,7 @@ router.post('/verify-otp', async (req, res) => {
       if (updates.length > 0) {
         params.push(user.id);
         await db.run(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
+        user = await db.get('SELECT * FROM users WHERE id = ?', [user.id]);
       }
     }
 
