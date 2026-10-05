@@ -23,7 +23,10 @@ const appState = {
   pendingVerificationPhone: '',
   pendingVerificationName: '',
   pendingBankDetails: null,
-  generatedOtpCode: ''
+  generatedOtpCode: '',
+  availableCameras: [],
+  currentCameraIndex: 0,
+  cameraFacingMode: 'environment'
 };
 
 // Apple Taptic Engine Simulation
@@ -571,6 +574,23 @@ function initOnboardingEvents() {
   const btnAutoPaste = document.getElementById('btn-ob-auto-paste');
   if (btnAutoPaste) btnAutoPaste.addEventListener('click', handleQuickFill);
 
+  // Send via WhatsApp button
+  const btnWhatsapp = document.getElementById('btn-ob-whatsapp');
+  if (btnWhatsapp) {
+    btnWhatsapp.addEventListener('click', () => {
+      triggerHaptic('medium');
+      const raw = appState.pendingVerificationPhone || document.getElementById('ob-phone')?.value || '';
+      const cleanPhone = raw.replace(/\D/g, '');
+      const code = appState.generatedOtpCode;
+      if (!cleanPhone || !code) {
+        alert('Please request a verification code first');
+        return;
+      }
+      const msg = encodeURIComponent(`[PayOffline] Your mobile verification code is: ${code}. Valid for 5 minutes.`);
+      window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${msg}`, '_blank');
+    });
+  }
+
   // Resend Button
   const btnResend = document.getElementById('btn-ob-resend');
   if (btnResend) {
@@ -796,21 +816,41 @@ async function handleOnboardingSendCode() {
 }
 
 function dispatchRealDeviceNotification(title, body) {
-  if ('Notification' in window) {
-    if (Notification.permission === 'granted') {
-      try {
-        const notif = new Notification(title, {
-          body: body,
-          icon: '/icons/icon.svg',
-          badge: '/icons/icon.svg',
-          vibrate: [200, 100, 200],
-          tag: 'payoffline-verification'
-        });
-        notif.onclick = () => window.focus();
-      } catch (e) {
-        console.warn('Native notification call error:', e);
-      }
+  if ('Notification' in window && Notification.permission === 'granted') {
+    // 1. ServiceWorker Push/Local Notification (Critical for Mobile Android / iOS PWA)
+    if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
+      navigator.serviceWorker.ready.then(reg => {
+        if (reg && reg.showNotification) {
+          reg.showNotification(title, {
+            body: body,
+            icon: '/icons/icon.svg',
+            badge: '/icons/icon.svg',
+            vibrate: [300, 100, 300, 100, 300],
+            tag: 'payoffline-verification',
+            renotify: true
+          });
+          return;
+        }
+        fallbackWindowNotification(title, body);
+      }).catch(() => fallbackWindowNotification(title, body));
+    } else {
+      fallbackWindowNotification(title, body);
     }
+  }
+}
+
+function fallbackWindowNotification(title, body) {
+  try {
+    const notif = new Notification(title, {
+      body: body,
+      icon: '/icons/icon.svg',
+      badge: '/icons/icon.svg',
+      vibrate: [200, 100, 200],
+      tag: 'payoffline-verification'
+    });
+    notif.onclick = () => window.focus();
+  } catch (e) {
+    console.warn('Window notification notice:', e);
   }
 }
 
@@ -833,31 +873,58 @@ function startOnboardingTimer() {
 }
 
 /**
- * 6-Digit Individual OTP Input Boxes Controller
+ * 6-Digit Individual OTP Input Boxes Controller - Optimized for Mobile
  */
 function initOtpBoxes() {
   const boxes = document.querySelectorAll('.otp-box');
   boxes.forEach((box, index) => {
-    // Handle typing
+    // Auto-select text on focus so typing immediately overwrites
+    box.addEventListener('focus', () => {
+      box.select();
+    });
+
+    // Handle typing on physical and mobile virtual keyboards
     box.addEventListener('input', (e) => {
-      const val = e.target.value;
-      if (val.length >= 1) {
+      const raw = e.target.value;
+      const clean = raw.replace(/\D/g, '');
+
+      if (clean.length > 0) {
+        // Keep the last entered digit
+        box.value = clean.slice(-1);
         box.classList.add('filled');
+
         // Auto-advance to next box
         if (index < boxes.length - 1) {
           boxes[index + 1].focus();
+        } else {
+          // If 6th box filled, check if full code is complete
+          const full = getEnteredOtp();
+          if (full.length === 6) {
+            triggerHaptic('success');
+            setTimeout(() => handleOnboardingVerify(), 300);
+          }
         }
       } else {
+        box.value = '';
         box.classList.remove('filled');
       }
     });
 
-    // Handle backspace navigation
+    // Handle backspace and arrow navigation
     box.addEventListener('keydown', (e) => {
-      if (e.key === 'Backspace' && !box.value && index > 0) {
+      if (e.key === 'Backspace') {
+        if (!box.value && index > 0) {
+          boxes[index - 1].focus();
+          boxes[index - 1].value = '';
+          boxes[index - 1].classList.remove('filled');
+        } else {
+          box.value = '';
+          box.classList.remove('filled');
+        }
+      } else if (e.key === 'ArrowLeft' && index > 0) {
         boxes[index - 1].focus();
-        boxes[index - 1].value = '';
-        boxes[index - 1].classList.remove('filled');
+      } else if (e.key === 'ArrowRight' && index < boxes.length - 1) {
+        boxes[index + 1].focus();
       }
     });
 
@@ -865,24 +932,36 @@ function initOtpBoxes() {
     box.addEventListener('paste', (e) => {
       e.preventDefault();
       const pasteData = (e.clipboardData || window.clipboardData).getData('text').trim();
-      if (/^\d{6}$/.test(pasteData)) {
-        fillOtpBoxes(pasteData);
+      const cleanDigits = pasteData.replace(/\D/g, '');
+      if (cleanDigits.length >= 6) {
+        fillOtpBoxes(cleanDigits.slice(0, 6));
       }
     });
   });
 }
 
 function fillOtpBoxes(codeString) {
+  const clean = (codeString || '').toString().replace(/\D/g, '').slice(0, 6);
   const boxes = document.querySelectorAll('.otp-box');
-  const digits = codeString.split('');
+  const digits = clean.split('');
+
   boxes.forEach((box, i) => {
     if (digits[i]) {
       box.value = digits[i];
       box.classList.add('filled');
+    } else {
+      box.value = '';
+      box.classList.remove('filled');
     }
   });
-  if (boxes[boxes.length - 1]) {
-    boxes[boxes.length - 1].focus();
+
+  if (digits.length === 6) {
+    if (boxes[5]) boxes[5].focus();
+    triggerHaptic('success');
+    // Auto-verify with smooth transition
+    setTimeout(() => handleOnboardingVerify(), 300);
+  } else if (boxes[digits.length]) {
+    boxes[digits.length].focus();
   }
 }
 
@@ -1018,8 +1097,10 @@ function initUIEvents() {
   document.getElementById('act-cloud').addEventListener('click', () => handleCloudBackupAction());
   document.getElementById('link-view-all').addEventListener('click', () => switchTab('tab-history', 4));
 
-  // Camera Toggle
+  // Camera Toggle & Camera Switch
   document.getElementById('btn-toggle-camera').addEventListener('click', toggleCameraScanner);
+  const btnSwitchCam = document.getElementById('btn-switch-camera');
+  if (btnSwitchCam) btnSwitchCam.addEventListener('click', handleSwitchCamera);
   document.getElementById('qr-file-input').addEventListener('change', handleQRFileUpload);
 
   // Gallery QR Picker
@@ -1730,7 +1811,7 @@ function formatDate(isoStr) {
 }
 
 /**
- * 12. CAMERA QR SCANNER
+ * 12. CAMERA QR SCANNER & DUAL CAMERA SWITCHER
  */
 function toggleCameraScanner() {
   if (appState.isScannerRunning) {
@@ -1740,7 +1821,7 @@ function toggleCameraScanner() {
   }
 }
 
-function startCameraScanner() {
+async function startCameraScanner() {
   const btn = document.getElementById('btn-toggle-camera');
   const feedback = document.getElementById('scan-feedback');
 
@@ -1748,36 +1829,126 @@ function startCameraScanner() {
     appState.html5QrScanner = new Html5Qrcode('camera-reader');
   }
 
-  btn.textContent = 'Stop Scanner';
-  feedback.textContent = 'Scanning camera viewfinder... Point at QR code';
+  btn.textContent = '⏹️ Stop Scanner';
+  feedback.textContent = 'Starting camera viewfinder...';
 
-  Html5Qrcode.getCameras().then(devices => {
-    if (devices && devices.length) {
-      const cameraId = devices.length > 1 ? devices[devices.length - 1].id : devices[0].id;
-      return appState.html5QrScanner.start(
-        cameraId,
-        { fps: 15, qrbox: { width: 250, height: 250 } },
+  try {
+    if (!appState.availableCameras || appState.availableCameras.length === 0) {
+      appState.availableCameras = await Html5Qrcode.getCameras();
+    }
+
+    if (appState.availableCameras && appState.availableCameras.length > 0) {
+      if (appState.currentCameraIndex >= appState.availableCameras.length) {
+        appState.currentCameraIndex = 0;
+      }
+      const cam = appState.availableCameras[appState.currentCameraIndex];
+      await startCameraWithId(cam.id);
+    } else {
+      // Fallback with facingMode
+      const facing = appState.cameraFacingMode || 'environment';
+      await appState.html5QrScanner.start(
+        { facingMode: facing },
+        { fps: 15, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
         onQrCodeScanned,
         () => {}
-      ).then(() => {
-        appState.isScannerRunning = true;
-      });
-    } else {
-      feedback.textContent = 'No camera found on this device. You can upload a QR image.';
-      btn.textContent = 'Start Camera Scanner';
+      );
+      appState.isScannerRunning = true;
+      feedback.textContent = 'Point camera at QR code';
     }
-  }).catch(err => {
+  } catch (err) {
     console.warn('Camera start error:', err);
-    feedback.textContent = 'Camera permission unavailable. Please upload a QR code image.';
-    btn.textContent = 'Start Camera Scanner';
-  });
+    btn.textContent = '📷 Start Scanner';
+    feedback.textContent = 'Camera permission unavailable. You can upload a QR image.';
+  }
+}
+
+async function startCameraWithId(cameraId) {
+  const btn = document.getElementById('btn-toggle-camera');
+  const feedback = document.getElementById('scan-feedback');
+
+  if (!appState.html5QrScanner) {
+    appState.html5QrScanner = new Html5Qrcode('camera-reader');
+  }
+
+  btn.textContent = '⏹️ Stop Scanner';
+  feedback.textContent = 'Scanning camera viewfinder... Point at QR code';
+
+  try {
+    await appState.html5QrScanner.start(
+      cameraId,
+      {
+        fps: 15,
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0
+      },
+      onQrCodeScanned,
+      () => {}
+    );
+    appState.isScannerRunning = true;
+  } catch (err) {
+    console.warn('Start camera with ID error:', err);
+    btn.textContent = '📷 Start Scanner';
+    feedback.textContent = 'Camera start failed: ' + (err.message || 'Check permissions');
+  }
+}
+
+async function handleSwitchCamera() {
+  triggerHaptic('medium');
+  const feedback = document.getElementById('scan-feedback');
+
+  try {
+    if (!appState.availableCameras || appState.availableCameras.length === 0) {
+      appState.availableCameras = await Html5Qrcode.getCameras();
+    }
+
+    if (appState.availableCameras && appState.availableCameras.length > 1) {
+      appState.currentCameraIndex = (appState.currentCameraIndex + 1) % appState.availableCameras.length;
+      const nextCam = appState.availableCameras[appState.currentCameraIndex];
+      const camLabel = nextCam.label || `Camera ${appState.currentCameraIndex + 1}`;
+
+      expandDynamicIsland('🔄', 'Switched Camera', camLabel, 2500);
+
+      if (appState.isScannerRunning && appState.html5QrScanner) {
+        feedback.textContent = `Switching to ${camLabel}...`;
+        await appState.html5QrScanner.stop();
+        appState.isScannerRunning = false;
+        await startCameraWithId(nextCam.id);
+      } else {
+        feedback.textContent = `Active camera set to: ${camLabel}. Tap Start Scanner.`;
+      }
+    } else {
+      // Toggle facing mode if multi-device query returned single or none
+      appState.cameraFacingMode = appState.cameraFacingMode === 'environment' ? 'user' : 'environment';
+      const modeName = appState.cameraFacingMode === 'user' ? 'Front Camera' : 'Back Camera';
+      expandDynamicIsland('🔄', 'Camera Facing', modeName, 2500);
+
+      if (appState.isScannerRunning && appState.html5QrScanner) {
+        feedback.textContent = `Switching to ${modeName}...`;
+        await appState.html5QrScanner.stop();
+        appState.isScannerRunning = false;
+        await appState.html5QrScanner.start(
+          { facingMode: appState.cameraFacingMode },
+          { fps: 15, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+          onQrCodeScanned,
+          () => {}
+        );
+        appState.isScannerRunning = true;
+        feedback.textContent = `Using ${modeName}. Point at QR code.`;
+      } else {
+        feedback.textContent = `Facing mode set to: ${modeName}. Tap Start Scanner.`;
+      }
+    }
+  } catch (err) {
+    console.warn('Switch camera error:', err);
+    if (feedback) feedback.textContent = 'Camera flip notice: ' + (err.message || 'Unable to switch camera');
+  }
 }
 
 function stopCameraScanner() {
   if (appState.html5QrScanner && appState.isScannerRunning) {
     appState.html5QrScanner.stop().then(() => {
       appState.isScannerRunning = false;
-      document.getElementById('btn-toggle-camera').textContent = 'Start Camera Scanner';
+      document.getElementById('btn-toggle-camera').textContent = '📷 Start Scanner';
       document.getElementById('scan-feedback').textContent = 'Scanner stopped';
     }).catch(err => console.warn('Stop scanner err:', err));
   }
